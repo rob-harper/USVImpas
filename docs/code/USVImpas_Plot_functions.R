@@ -162,7 +162,7 @@ USVI_domain_dens_by_year <- function(dataset,
       PROT = as.integer(PROT)
     )
 
-  # get densities for each PROT level (defensively)
+  # get densities for each PROT level with better NULL handling
   dens <- purrr::map_dfr(c(0, 1, 2), function(p) {
 
     res <- tryCatch(
@@ -174,17 +174,25 @@ USVI_domain_dens_by_year <- function(dataset,
         status = p,
         length_bins = length
       ),
-      error = function(e) NULL
+      error = function(e) {
+        message(glue::glue("Warning: getDomainDensity failed for PROT level {p}: {e$message}"))
+        return(NULL)
+      }
     )
 
-    if (is.null(res) || nrow(res) == 0) return(NULL)
+    # Return empty tibble instead of NULL for consistency
+    if (is.null(res) || nrow(res) == 0) {
+      return(tibble::tibble())
+    }
 
     res %>%
+      tibble::as_tibble() %>%
       mutate(
         PROT = p,
         SE   = sqrt(var),
         YEAR = as_factor(YEAR)
       )
+
   }) %>%
     filter(
       if (!is.null(length) && "length_class" %in% names(.))
@@ -197,6 +205,10 @@ USVI_domain_dens_by_year <- function(dataset,
   if (!"GROUP" %in% names(dens)) {
     dens$GROUP <- "All"
   }
+
+  # Debug info (remove after testing)
+  message(glue::glue("Unique PROT levels in final data: {paste(unique(dens$PROT), collapse = ', ')}"))
+  message(glue::glue("Total rows: {nrow(dens)}"))
 
   # plot
   ggplot(
@@ -289,6 +301,10 @@ USVI_domain_occ_by_year <- function(dataset,
 
   return(p)
 }
+
+# Copy-pasteable: compute_bin_size, LF helpers, plotting, and render function.
+# Requires: tidyverse (dplyr/tidyr/purrr), ggplot2, patchwork, plus your getDomainLengthFrequency() and labeler()/theme_Publication().
+
 
 # Copy-pasteable: compute_bin_size, LF helpers, plotting, and render function.
 # Requires: tidyverse (dplyr/tidyr/purrr), ggplot2, patchwork, plus your getDomainLengthFrequency() and labeler()/theme_Publication().
@@ -555,7 +571,7 @@ render_LF_plots <- function(df, SPECIES_CD, COMNAME, max_size = NULL, yrs = c(20
   })
 
   # layout construction (2 per row)
-  n_per_row <- 3
+  n_per_row <- 2
   if (length(panels) == 0) panels <- list()
 
   n_needed <- n_per_row - (length(panels) %% n_per_row)
