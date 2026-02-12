@@ -1,0 +1,165 @@
+---
+title: "USVI Marine Protected Area NCRMP Fish Survey Analyses DRY TORT TEST DATA"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mail: "rob.harper@noaa.gov"
+github: "rob-harper/USVImpas"
+citeproc: true
+link-citations: true
+et-al-min: 2
+code-fold: true
+code-tools: true
+format: 
+  html:
+    page-layout: full
+    toc: true
+    number-sections: true
+    fig-cap-location: bottom
+    theme: lumen
+    title-block: true
+    title-block-banner: true
+    tabset: true
+    include-before-body: _logo.html 
+  pdf:
+    mainfont: ArialMT
+    toc: true
+    toc-title: |
+      \clearpage
+      Table of Contents
+    author: "Rob Harper, Jeremiah Blondeau, and Jay Grove"
+    number-sections: true
+    fig-cap-location: bottom
+    fig-align: "center"
+    include-in-header:
+      text: |
+        \usepackage{graphicx}
+        \usepackage{titling}
+        \pretitle{%
+        \begin{center}
+        \includegraphics[width=4cm]{noaa_logo.png}\\[1em]
+        \includegraphics[width=4cm]{CRCP.png}\\[1em]
+        \LARGE
+        }
+        \usepackage{caption}
+        \captionsetup[table]{labelformat=empty}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+# Needed Libraries
+library(rvc)
+library(tidyverse)
+library(DT)
+library(patchwork)
+library(glue)
+
+
+# Source Plotting Functions
+source('code/labeler.R', local = knitr::knit_global())
+source('code/QL_binned_LengthFreq.R', local = knitr::knit_global())
+source('code/theme_publication.R', local = knitr::knit_global())
+source('code/WrapperFunctions.R', local = knitr::knit_global())
+source('code/USVImpas_plot_functions.R', local = knitr::knit_global())
+source('code/two_tail_t_test.R', local = knitr::knit_global())
+
+# Read in MIR data set
+USVImpas_data <- readRDS("../data/USVImpas_data.rds")
+
+DryTort_data <- readRDS("../data/DryTort_data.rds")
+
+STTSTJ <- readRDS("../data/STTSTJ.rds")
+
+
+# Read in additional species size data (used to generate LF plots)
+# This never changes! It is a list of all species codes + max size
+
+community_data <- readRDS("../data/community_data.rds")
+
+```
+
+
+\newpage
+
+## Introduction
+
+Fishy fish in the USVI prot areas
+
+\newpage
+### Maps of Protected Areas
+
+### EEMP
+insert map image
+
+### STEER
+insert map image
+
+\newpage
+
+## Data Analyses
+
+Text about analyses of data inside and out of prot areas 
+
+
+### Strata
+```{r echo=FALSE}
+render_strata_table(USVImpas_data$sample_data, 
+                    caption = "Table 1: Number of reef fish survey sites in each stratum inside USVI Marine Protected Areas and outside")
+```
+
+```{r echo=FALSE}
+# To add species to the document, add species code here
+target_species <- c(
+  "OCY CHRY", "EPI GUTT", "EPI STRI", "BAL VETU"
+)
+
+# Build spp_list dynamically with image paths for later use in tables/plots
+
+spp_list <- USVImpas_data$taxonomic_data %>%
+  filter(SPECIES_CD %in% target_species) %>%
+  select(SPECIES_CD, COMNAME, SCINAME) %>%
+  distinct() %>%
+  arrange(match(SPECIES_CD, target_species)) %>%
+  left_join(community_data) %>%
+  mutate(
+    COMNAME = stringr::str_to_title(COMNAME),
+    img_path = file.path("species_photos", paste0(gsub(" ", "_", SPECIES_CD), ".png"))
+  )
+
+render_species_table(spp_list, caption = 
+                       "Table 2:  Fish species with representative photos. Difficult to distinguish species were combined for analyses")
+```
+
+## Density
+
+Relative density is an index or relative measure of population density that is commonly used in fisheries surveys. Relative density is a comparative measure of density across locations or years, rather than an absolute count that is impractical due to the scale and complexity of the marine environment. Densities shown here represent NCRMP’s fish survey area (177m2).
+
+Density specific text to this proj
+
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+USVI_domain_dens_by_year(STTSTJ, spp_list, caption = str_wrap( 
+                        "Update caption text. Dry tortugas data for testing", width = 100))
+```
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+USVI_domain_occ_by_year(DryTort_data, spp_list, caption = str_wrap(
+                        "Update caption text. Dry tortugas data for testing", width = 100))
+```
+```{r, echo=FALSE, results='asis', fig.width=12, fig.height=10}
+#Length frequency plots
+pwalk(
+  spp_list,
+  function(SPECIES_CD, COMNAME, SCINAME, max_size, ...) {
+    cat("### ", COMNAME, "\n\n")
+    p <- render_LF_plots(
+      df         = DryTort_data,   
+      SPECIES_CD = SPECIES_CD,
+      COMNAME    = COMNAME,
+      max_size   = max_size,
+      yrs        = unique(DryTort_data$sample_data$YEAR),
+      target_bins = 12
+    )
+    print(p)
+    cat("\n\n")
+  }
+)
+```

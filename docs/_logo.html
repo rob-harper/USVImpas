@@ -1,0 +1,86 @@
+<style>
+/* Left-side CRCP logo */
+.left-logo-container {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background-color: white;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 10;
+}
+
+.left-logo-container img {
+  height: 100px;
+}
+
+/* Right-side stacked logos */
+.logo-container {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background-color: white;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 10;
+}
+
+.logo-container img {
+  height: 50px;
+}
+
+/* Table of contents font size */
+nav#TOC {
+  font-size: 0.85em;
+}
+
+/* Center the Quarto title block */
+.quarto-title .title {
+  margin-left: 180px;
+  text-align: center;
+  color: white;
+}
+</style>
+
+<div class="left-logo-container">
+  <img src="CRCP.png" alt="CRCP Logo">
+</div>
+
+<div class="logo-container">
+  <img src="noaa_logo.png" alt="NOAA Logo">
+
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Select all anchor tags
+  document.querySelectorAll('a').forEach(function(link) {
+    // Only set target=_blank for external links (optional)
+    if (
+      link.href &&
+      link.hostname &&
+      link.hostname !== window.location.hostname
+    ) {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener');
+    }
+  });
+});
+</script>
+
+<div style="text-align:left; margin-top: -1.5em;">
+  <p style="font-size:16px; margin-bottom:0.2em;">
+    <a href="https://github.com/rob-harper/USVImpas">Rob Harper</a><sup>2, 1</sup>,
+    Jeremiah Blondeau<sup>1</sup>,
+    Jay Grove<sup>1</sup>
+  </p>
+
+  <p style="font-size:14px; margin-top:0.2em;">
+    1 NOAA Fisheries, Southeast Fisheries Science Center<br>
+    2 University of Miami, Cooperative Institute for Marine and Atmospheric Studies
+  </p>
+</div>
