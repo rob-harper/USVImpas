@@ -136,12 +136,12 @@ Density specific text to this proj
 
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE}
-USVI_domain_dens_by_year(STTSTJ, spp_list, caption = str_wrap( 
-                        "Update caption text. Dry tortugas data for testing", width = 100))
+USVI_domain_dens_by_year(DryTort_data, spp_list, caption = str_wrap( 
+                        "Update caption text", width = 100))
 ```
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE}
-USVI_domain_occ_by_year(DryTort_data, spp_list, caption = str_wrap(
+USVI_domain_occ_by_year(STTSTJ, spp_list, caption = str_wrap(
                         "Update caption text. Dry tortugas data for testing", width = 100))
 ```
 ```{r, echo=FALSE, results='asis', fig.width=12, fig.height=10}
@@ -151,11 +151,11 @@ pwalk(
   function(SPECIES_CD, COMNAME, SCINAME, max_size, ...) {
     cat("### ", COMNAME, "\n\n")
     p <- render_LF_plots(
-      df         = DryTort_data,   
+      df         = STTSTJ,   
       SPECIES_CD = SPECIES_CD,
       COMNAME    = COMNAME,
       max_size   = max_size,
-      yrs        = unique(DryTort_data$sample_data$YEAR),
+      yrs        = unique(STTSTJ$sample_data$YEAR),
       target_bins = 12
     )
     print(p)
