@@ -1,3 +1,6 @@
+library(rvc)
+library(tidyverse)
+
 USVImpas_data_dummy <- USVImpas_data
 
 # Randomly assign 0, 1, or 2 to prot
@@ -25,8 +28,7 @@ DryTort_data <- list(
 
 saveRDS(DryTort_data, "data/DryTort_data.rds")
 
-library(rvc)
-library(tidyverse)
+
 STTSTJ_sample <- getSampleData(2025:2025, "STTSTJ")
 
 STTSTJ_stratum <- getStratumData(2025:2025, "STTSTJ")
@@ -125,6 +127,60 @@ STTSTJnewstrat_combined <- STTSTJnewstrat_combined %>%
   group_by(STRATxPROT) %>%
   summarise(FREQUENCY = sum(FREQUENCY), .groups = "drop")
 
+STTSTJnewstrat_combined<- STTSTJnewstrat_combined %>%
+  mutate(
+    # Extract protection first (if not already done)
+    prot = case_when(
+      str_ends(STRATxPROT, "OPEN")  ~ 0,
+      str_ends(STRATxPROT, "PARK")  ~ 1,
+      str_ends(STRATxPROT, "STEER") ~ 2
+    ),
+
+    # Remove protection suffix
+    temp_strat = str_remove(STRATxPROT, "OPEN$|PARK$|STEER$"),
+
+    # Extract depth
+    DEPTH = str_extract(temp_strat, "^DEEP|^SHLW"),
+
+    # Extract habitat (everything after depth)
+    HABITAT = str_remove(temp_strat, "^DEEP|^SHLW"),
+
+    # Reorder to HABITAT + DEPTH
+    STRAT = paste0(HABITAT, DEPTH)
+  ) %>%
+  select(-temp_strat, -DEPTH, -HABITAT)
+
+STTSTJnewstrat_combined <- STTSTJnewstrat_combined %>%
+  mutate(
+    DEPTH   = str_extract(STRAT, "^DEEP|^SHLW"),
+    HABITAT = str_remove(STRAT, "^DEEP|^SHLW"),
+    STRAT   = paste0(HABITAT, DEPTH)
+  ) %>%
+  select(-DEPTH, -HABITAT)
+
+STT_STJ_strat_table2025 <- STT_STJ_strat_table2025 %>%
+  mutate(
+    prot = case_when(
+      ADMIN == "OPEN"  ~ 0,
+      ADMIN == "NPS"   ~ 1,
+      ADMIN == "STEER" ~ 2
+    )
+  )
+
+# Combined strat table for comparing samples vs all strat
+
+STTSTJ_combined_strat_sample <- full_join(
+  STTSTJnewstrat_combined,
+  STT_STJ_strat_table2025,
+  by = c("STRAT", "prot")
+) %>%
+  mutate(
+    NTOT = ifelse(is.na(NTOT), 0, NTOT),
+    n    = ifelse(is.na(n), 0, n)
+  ) %>%
+  arrange(STRAT, prot)
+
+## script for comining strats
 STTSTJnewstrat_combined <- STTSTJnewstrat_combined %>%
   mutate(
     STRATxPROT = case_when(
@@ -146,3 +202,59 @@ STTSTJnewstrat_combined <- STTSTJnewstrat_combined %>%
   ) %>%
   group_by(STRATxPROT) %>%
   summarise(FREQUENCY = sum(FREQUENCY), .groups = "drop")
+
+
+## STX
+
+
+STX_trimmed <- STX_points_notake %>%
+  select(PRIMARY_SAMPLE_UNIT, YEAR, ADMIN, PROT, STRAT, NoTake)
+
+STX_trimmed <- STX_trimmed %>%
+  mutate(
+    PROT = case_when(
+      ADMIN == "OPEN" ~ 0,
+      ADMIN %in% c("BUIS", "SARI") ~ 1,
+      ADMIN == "EEMP" ~ 0,   # default EEMP to 0
+      TRUE ~ NA_real_
+    )
+  )
+
+STX_trimmed <- STX_trimmed %>%
+  mutate(
+    PROT = if_else(ADMIN == "EEMP" & NoTake == 1, 2, PROT)
+  )
+
+STX_trimmed <- STX_trimmed %>%
+  mutate(
+    PROT = if_else(PRIMARY_SAMPLE_UNIT %in% c(4613, 4611, 4633, 4704),
+                   2,
+                   PROT)
+  )
+
+STX_strat_summary <- STX_trimmed %>%
+  count(PROT, STRAT, name = "n") %>%
+  select(PROT, STRAT, n)
+
+STX_prot_strat_counts <- STX_sampleframe_notake %>%
+
+  # 1️⃣ Create STRAT
+  mutate(
+    STRAT = paste0(HABITAT, DEPTH)
+  ) %>%
+
+  # 2️⃣ Create PROT (two-step logic)
+  mutate(
+    PROT = case_when(
+      ADMIN == "OPEN" ~ 0,
+      ADMIN %in% c("BUIS", "SARI") ~ 1,
+      ADMIN == "EEMP" ~ 0,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  mutate(
+    PROT = if_else(ADMIN == "EEMP" & NoTake == 1, 2, PROT)
+  ) %>%
+
+  # 3️⃣ Count GRID_ID per PROT × STRAT
+  count(PROT, STRAT, name = "n")
