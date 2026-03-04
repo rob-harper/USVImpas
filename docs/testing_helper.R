@@ -1,19 +1,7 @@
 library(rvc)
 library(tidyverse)
+library(dplyr)
 
-USVImpas_data_dummy <- USVImpas_data
-
-# Randomly assign 0, 1, or 2 to prot
-set.seed(123)  # optional, for reproducibility
-USVImpas_data_dummy$sample_data <- USVImpas_data_dummy$sample_data %>%
-  dplyr::mutate(
-    PROT = sample(c(0, 1, 2), size = n(), replace = TRUE),
-    NUM = NUM + PROT*rnorm(n(), 10, 1)
-  )
-
-
-# Save dummy RDS
-saveRDS(USVImpas_data_dummy, "data/USVImpas_data_dummy.rds")
 
 #dry tort testing
 DRY_tort_sample <- getSampleData(2016:2024, "DRY TORT")
@@ -258,3 +246,184 @@ STX_prot_strat_counts <- STX_sampleframe_notake %>%
 
   # 3️⃣ Count GRID_ID per PROT × STRAT
   count(PROT, STRAT, name = "n")
+
+
+## data organization final step
+
+STTSTJ <- getRvcData(2025, "STTSTJ")
+
+STTSTJ$sample_data <- STTSTJ$sample_data %>%
+  mutate(PROT = case_when(
+    ADMIN == "OPEN" ~ 0,
+    ADMIN %in% c("VICR", "VIIS") ~ 1,
+    ADMIN == "STEER" ~ 2
+  ))
+
+STTSTJ$stratum_data <- STTSTJ$stratum_data %>%
+  mutate(NTOT = case_when(
+    PROT == 1 & STRAT == "SCRSHLW" ~ NTOT + NTOT[PROT == 1 & STRAT == "PVMTSHLW"],
+    TRUE ~ NTOT # Keep all other values the same
+  ))
+
+STTSTJ$stratum_data <- STTSTJ$stratum_data %>%
+  filter(!(PROT == 1 & STRAT == "PVMTSHLW"))
+
+STTSTJ$stratum_data <- STTSTJ$stratum_data %>%
+  mutate(
+    STRAT = case_when(
+      STRAT %in% c("BDRKDEEP", "BDRKSHLW") ~ "BDRK",
+      TRUE ~ STRAT
+    )
+  )
+STTSTJ$stratum_data <- STTSTJ$stratum_data %>%
+  group_by(REGION, YEAR, PROT, STRAT, STAGE_LEVEL) %>%
+  summarise(
+    NTOT = sum(NTOT, na.rm = TRUE),
+    GRID_SIZE = sum(GRID_SIZE, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+STTSTJ$sample_data <- STTSTJ$sample_data %>%
+  mutate(
+    STRAT = case_when(
+      STRAT %in% c("BDRKDEEP", "BDRKSHLW") ~ "BDRK",
+      TRUE ~ STRAT
+    )
+  )
+
+##sample data check
+STTSTJ$sample_data %>%
+  distinct(PRIMARY_SAMPLE_UNIT, PROT, STRAT) %>%
+  count(PROT, STRAT) %>%
+  arrange
+
+##cv table
+
+spp_vec <- c("EPI STRI", "OCY CHRY", "BAL VETU", "SPA VIRI")  # your species list
+
+density_table <- map_dfr(spp_vec, function(spp) {
+
+  getDomainDensity(STTSTJ, spp, merge_protected = FALSE) %>%
+    mutate(
+      species = spp,
+      cv = (sqrt(var) / density) * 100
+    )
+
+})
+
+saveRDS(STTSTJ, file = "STTSTJ_03-04.rds")
+
+#STX
+
+STX <- getRvcData(2025, "STX")
+
+STX_sampleframe_notake <- STX_sampleframe_notake %>%
+  mutate(
+    STRAT = paste0(HABITAT, DEPTH)
+  )
+STX_sampleframe_notake <- STX_sampleframe_notake %>%
+  mutate(
+    PROT = case_when(
+      ADMIN == "OPEN" ~ 0,
+      ADMIN %in% c("BUIS", "SARI") ~ 1,
+      ADMIN == "EEMP" & NoTake == 1 ~ 2,
+      ADMIN == "EEMP" & NoTake == 0 ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+STX_strat_3.4 <- STX_sampleframe_notake %>%
+  group_by(REGION, PROT, STRAT) %>%
+  summarise(
+    NTOT = n(),  # number of grid cells
+    GRID_SIZE = sum(Shape_Area, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+STX_strat_3.4 <- STX_strat_3.4 %>%
+  # Step 1: fix misassigned rows
+  mutate(
+    STRAT = case_when(
+      PROT == 2 & STRAT == "eSHLW" ~ "PVMTSHLW",
+      TRUE ~ STRAT
+    ),
+    PROT = case_when(
+      is.na(PROT) & STRAT == "PVMTSHLW" ~ 2,
+      TRUE ~ PROT
+    ),
+    REGION = case_when(
+      is.na(REGION) & STRAT == "PVMTSHLW" ~ "STX",
+      TRUE ~ REGION
+    )
+  ) %>%
+  # Step 2: collapse duplicates
+  group_by(REGION, PROT, STRAT) %>%
+  summarise(
+    NTOT = sum(NTOT, na.rm = TRUE),
+    GRID_SIZE = sum(GRID_SIZE, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+STX_strat_3.4 <- STX_strat_3.4 %>%
+  filter(!grepl("DEEP", STRAT))
+
+STX_strat_3.4 <- STX_strat_3.4 %>%
+mutate(
+  STRAT = if_else(STRAT == "BDRKSHLW", "AGRSHLW", STRAT)
+) %>%
+  group_by(REGION, PROT, STRAT) %>%
+  summarise(
+    NTOT = sum(NTOT, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+STX_strat_3.4 <- STX_strat_3.4 %>%
+  mutate(
+    STRAT = if_else(STRAT == "AGRSHLW", "AGRFSHLW", STRAT)
+  ) %>%
+  group_by(REGION, PROT, STRAT) %>%
+  summarise(
+    NTOT = sum(NTOT, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+STX_strat_3.4 <- STX_strat_3.4 %>%
+  mutate(
+    STRAT = if_else(STRAT == "SCRSHLW", "PVMTSHLW", STRAT)
+  ) %>%
+  group_by(REGION, PROT, STRAT) %>%
+  summarise(
+    NTOT = sum(NTOT, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+## STX sample
+STX_points_notake <- STX_points_notake %>%
+  mutate(
+    PROT = case_when(
+      ADMIN == "OPEN" ~ 0,
+      ADMIN %in% c("BUIS", "SARI") ~ 1,
+      ADMIN == "EEMP" & NoTake == 0 ~ 0,
+      ADMIN == "EEMP" & NoTake == 1 ~ 2,
+      TRUE ~ NA_real_  # catches anything unexpected
+    )
+  )
+
+STX_points_notake <- STX_points_notake %>%
+  mutate(
+    PROT = if_else(PRIMARY_SAMPLE_UNIT %in% c(4613, 4611, 4633, 4707),
+                   2,   # set PROT to 2 for these PSUs
+                   PROT)  # keep existing PROT for all others
+  )
+
+STX$sample_data <- STX$sample_data %>%
+  # Join PROT from STX_points_notake based on PRIMARY_SAMPLE_UNIT
+  left_join(
+    STX_points_notake %>% select(PRIMARY_SAMPLE_UNIT, PROT_new = PROT),
+    by = "PRIMARY_SAMPLE_UNIT"
+  ) %>%
+  # Replace the old PROT with the new PROT where available
+  mutate(
+    PROT = coalesce(PROT_new, PROT)  # use PROT_new if it exists, otherwise keep old PROT
+  ) %>%
+  select(-PROT_new)  # remove the temporary column
