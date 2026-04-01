@@ -1,46 +1,48 @@
 # Strata table
-render_strata_table <- function(df, caption = "Number of sites sampled by year") {
+render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by strata and study area") {
 
   table <- df %>%
-    group_by(YEAR, PROT, STRAT) %>%
+    group_by(PROT, STRAT) %>%
     summarise(n = n_distinct(PRIMARY_SAMPLE_UNIT), .groups = "drop") %>%
-    mutate(description = case_when(
-      STRAT == "AGRFDEEP" ~ "Aggregated reef, deep",
-      STRAT == "AGRFSHLW" ~ "Aggregated reef, shallow",
-
-      STRAT == "BDRKDEEP" ~ "Bedrock reef, deep",
-      STRAT == "BDRKSHLW" ~ "Bedrock reef, shallow",
-
-      STRAT == "HARDDEEP" ~ "Hardbottom, deep",
-      STRAT == "HARDSHLW" ~ "Hardbottom, shallow",
-
-      STRAT == "PTRFDEEP" ~ "Patch reef, deep",
-      STRAT == "PTRFSHLW" ~ "Patch reef, shallow",
-
-      STRAT == "PVMTDEEP" ~ "Pavement, deep",
-      STRAT == "PVMTSHLW" ~ "Pavement, shallow",
-
-      STRAT == "SCRDEEP"  ~ "Scattered coral and rock, deep",
-      STRAT == "SCRSHLW"  ~ "Scattered coral and rock, shallow",
-      TRUE ~ STRAT
-    ),
-    PROT = case_when(
-      PROT == 0 ~ "Outside",
-      PROT == 1 ~ "Inside",
-      TRUE ~ as.character(PROT)
-    ),
-    PROT = factor(PROT, levels = c("Outside", "Inside"))) %>%
-    select(YEAR, PROT, STRAT, description, n) %>%
-    pivot_wider(names_from = YEAR, values_from = n, values_fill = 0) %>%
-    arrange(PROT, STRAT) %>%
-    ungroup()
+    mutate(
+      description = case_when(
+        STRAT == "AGRFDEEP" ~ "Aggregated reef, deep",
+        STRAT == "AGRFSHLW" ~ "Aggregated reef, shallow",
+        STRAT == "BDRKDEEP" ~ "Bedrock reef, deep",
+        STRAT == "BDRKSHLW" ~ "Bedrock reef, shallow",
+        STRAT == "BDRK" ~ "Bedrock",
+        STRAT == "HARDDEEP" ~ "Hardbottom, deep",
+        STRAT == "HARDSHLW" ~ "Hardbottom, shallow",
+        STRAT == "PTRFDEEP" ~ "Patch reef, deep",
+        STRAT == "PTRFSHLW" ~ "Patch reef, shallow",
+        STRAT == "PVMTDEEP" ~ "Pavement, deep",
+        STRAT == "PVMTSHLW" ~ "Pavement, shallow",
+        STRAT == "SCRDEEP"  ~ "Scattered coral and rock, deep",
+        STRAT == "SCRSHLW"  ~ "Scattered coral and rock, shallow",
+        TRUE ~ STRAT
+      ),
+      PROT = case_when(
+        PROT == 0 ~ "Open",
+        PROT == 1 ~ "NPS",
+        PROT == 2 ~ "STEER",
+        TRUE ~ as.character(PROT)
+      ),
+      # Ensure the columns appear in this specific order
+      PROT = factor(PROT, levels = c("Open", "NPS", "STEER"))
+    ) %>%
+    select(description, STRAT, PROT, n) %>%
+    # CHANGE: Pivot the Study Area (PROT) to columns
+    pivot_wider(names_from = PROT, values_from = n, values_fill = 0) %>%
+    # Optional: Add a Total column
+    mutate(Total = rowSums(select(., Open, NPS, STEER))) %>%
+    arrange(description)
 
   if (knitr::is_html_output()) {
     DT::datatable(
       table,
       class = "cell-border stripe",
       rownames = FALSE,
-      colnames = c("Study Area", "Strata Name", "Strata Description", sort(unique(df$YEAR))),
+      colnames = c("Strata Description", "Code", "Open", "NPS", "STEER", "Total"),
       caption = htmltools::tags$caption(
         style = 'caption-side: top; text-align: left; font-weight: bold;',
         caption
@@ -477,154 +479,273 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name) {
 }
 
 # Length frequency for comparing a single category across recent years
+# MIR_LF_yr <- function(df, spp, bin_size, yrs = NULL, spp_name, category, custom_title = NULL) {
+#
+#   x <- getDomainLengthFrequency(df, species = spp, merge_protected = FALSE) %>%
+#     group_by(YEAR, SPECIES_CD, protected_status) %>%
+#     filter(YEAR %in% sort(unique(YEAR), decreasing = TRUE)[1:3]) %>%
+#     nest() %>%
+#     mutate(Lf = map(data, ~ .x %>%
+#                       data.frame() %>%
+#                       full_join(., data.frame(length_class = if (nrow(.) > 0) seq(1, max(.$length_class), 0.5) else 1)) %>%
+#                       select(length_class, frequency) %>%
+#                       replace(is.na(.), 0) %>%
+#                       mutate(bin = as.numeric(cut(length_class,
+#                                                   breaks = seq(0, max(length_class, na.rm = TRUE) + bin_size, bin_size)))) %>%
+#                       arrange(length_class) %>%
+#                       group_by(bin) %>%
+#                       summarise(freq = sum(frequency, na.rm = TRUE))
+#     )) %>%
+#     unnest(Lf) %>%
+#     select(YEAR, SPECIES_CD, protected_status, bin, freq) %>%
+#     ungroup() %>%
+#     mutate(
+#       value = freq,
+#       variable = case_when(
+#         protected_status == 0 ~ "0",
+#         protected_status == 1 ~ "1",
+#         protected_status == 2 ~ "2",
+#         TRUE ~ as.character(protected_status)
+#       ) %>% factor(levels = c("0", "1", "2"))
+#     )
+#
+#   y_wide <- x %>%
+#     filter(YEAR %in% yrs, variable == category) %>%
+#     select(YEAR, SPECIES_CD, variable, bin, value) %>%
+#     pivot_wider(names_from = bin, values_from = value, values_fill = 0)
+#
+#   # If no bin columns, add a dummy "0"
+#   id_cols <- c("YEAR", "SPECIES_CD", "variable")
+#   other_cols <- setdiff(names(y_wide), id_cols)
+#   if (length(other_cols) == 0) {
+#     first_year <- if (length(yrs) > 0) yrs[1] else NA
+#     y_wide <- tibble(YEAR = first_year, SPECIES_CD = spp, variable = category, `0` = 0)
+#   }
+#
+#   y <- y_wide %>%
+#     pivot_longer(cols = -all_of(id_cols), names_to = "bin", values_to = "value") %>%
+#     mutate(
+#       bin = as.numeric(bin),
+#       fill_key = paste(variable, YEAR, sep = "_")
+#     )
+#
+#   # Final guard
+#   if (nrow(y) == 0 || all(is.na(y$bin))) {
+#     first_year <- if (length(yrs) > 0) yrs[1] else NA
+#     y <- tibble(YEAR = first_year, SPECIES_CD = spp, variable = category, bin = 0, value = 0, fill_key = paste(category, first_year, sep = "_"))
+#   }
+#
+#   if (is.null(custom_title)) custom_title <- paste0(spp_name, " - ", category)
+#
+#   plot_bins_yr(x = y, ttle = custom_title, bin_size = bin_size, category = category, spp_name = spp_name, legend_mode = "year")
+# }
+
 MIR_LF_yr <- function(df, spp, bin_size, yrs = NULL, spp_name, category, custom_title = NULL) {
 
-  x <- getDomainLengthFrequency(df, species = spp, merge_protected = FALSE) %>%
-    group_by(YEAR, SPECIES_CD, protected_status) %>%
-    filter(YEAR %in% sort(unique(YEAR), decreasing = TRUE)[1:3]) %>%
-    nest() %>%
-    mutate(Lf = map(data, ~ .x %>%
-                      data.frame() %>%
-                      full_join(., data.frame(length_class = if (nrow(.) > 0) seq(1, max(.$length_class), 0.5) else 1)) %>%
-                      select(length_class, frequency) %>%
-                      replace(is.na(.), 0) %>%
-                      mutate(bin = as.numeric(cut(length_class,
-                                                  breaks = seq(0, max(length_class, na.rm = TRUE) + bin_size, bin_size)))) %>%
-                      arrange(length_class) %>%
-                      group_by(bin) %>%
-                      summarise(freq = sum(frequency, na.rm = TRUE))
+  # 1. Get raw frequency data
+  x_raw <- getDomainLengthFrequency(df, species = spp, merge_protected = FALSE)
+
+  # 2. Process and Bin
+  x <- x_raw %>%
+    filter(YEAR %in% yrs) %>%
+    # Explicitly map the protection codes immediately
+    mutate(variable = case_when(
+      protected_status == 0 ~ "0",
+      protected_status == 1 ~ "1",
+      protected_status == 2 ~ "2",
+      TRUE ~ as.character(protected_status)
     )) %>%
+    filter(variable == as.character(category)) %>% # Filter for the specific study area
+    group_by(YEAR, SPECIES_CD, variable) %>%
+    nest() %>%
+    mutate(Lf = map(data, ~ {
+      d <- .x %>% data.frame()
+      if (nrow(d) == 0) return(tibble(bin = 0, freq = 0))
+
+      # Create a complete sequence of lengths to avoid gaps
+      max_len <- if(max(d$length_class, na.rm = TRUE) > 0) max(d$length_class) else 1
+      full_seq <- data.frame(length_class = seq(0, max_len + bin_size, 0.5))
+
+      d %>%
+        full_join(full_seq, by = "length_class") %>%
+        replace_na(list(frequency = 0)) %>%
+        mutate(bin = as.numeric(cut(length_class,
+                                    breaks = seq(0, max_len + bin_size * 2, bin_size),
+                                    include.lowest = TRUE, right = FALSE))) %>%
+        group_by(bin) %>%
+        summarise(freq = sum(frequency, na.rm = TRUE), .groups = "drop")
+    })) %>%
     unnest(Lf) %>%
-    select(YEAR, SPECIES_CD, protected_status, bin, freq) %>%
-    ungroup() %>%
-    mutate(
-      value = freq,
-      variable = case_when(
-        protected_status == 0 ~ "0",
-        protected_status == 1 ~ "1",
-        protected_status == 2 ~ "2",
-        TRUE ~ as.character(protected_status)
-      ) %>% factor(levels = c("0", "1", "2"))
-    )
+    ungroup()
 
-  y_wide <- x %>%
-    filter(YEAR %in% yrs, variable == category) %>%
-    select(YEAR, SPECIES_CD, variable, bin, value) %>%
-    pivot_wider(names_from = bin, values_from = value, values_fill = 0)
-
-  # If no bin columns, add a dummy "0"
-  id_cols <- c("YEAR", "SPECIES_CD", "variable")
-  other_cols <- setdiff(names(y_wide), id_cols)
-  if (length(other_cols) == 0) {
-    first_year <- if (length(yrs) > 0) yrs[1] else NA
-    y_wide <- tibble(YEAR = first_year, SPECIES_CD = spp, variable = category, `0` = 0)
+  # 3. Handle the "Zero Data" case for STEER
+  # If the dataframe is empty after filtering for the category, create a blank placeholder
+  if (nrow(x) == 0) {
+    y <- expand.grid(
+      YEAR = yrs,
+      SPECIES_CD = spp,
+      variable = category,
+      bin = 0
+    ) %>%
+      mutate(value = 0, fill_key = paste(variable, YEAR, sep = "_"))
+  } else {
+    y <- x %>%
+      mutate(
+        value = freq,
+        fill_key = paste(variable, YEAR, sep = "_")
+      ) %>%
+      select(YEAR, SPECIES_CD, variable, bin, value, fill_key)
   }
 
-  y <- y_wide %>%
-    pivot_longer(cols = -all_of(id_cols), names_to = "bin", values_to = "value") %>%
-    mutate(
-      bin = as.numeric(bin),
-      fill_key = paste(variable, YEAR, sep = "_")
-    )
+  # 4. Final Formatting
+  y$variable <- factor(y$variable, levels = c("0", "1", "2"))
 
-  # Final guard
-  if (nrow(y) == 0 || all(is.na(y$bin))) {
-    first_year <- if (length(yrs) > 0) yrs[1] else NA
-    y <- tibble(YEAR = first_year, SPECIES_CD = spp, variable = category, bin = 0, value = 0, fill_key = paste(category, first_year, sep = "_"))
+  if (is.null(custom_title)) {
+    area_name <- case_when(category == "0" ~ "Open", category == "1" ~ "NPS", category == "2" ~ "STEER", TRUE ~ category)
+    custom_title <- paste0(spp_name, " - ", area_name)
   }
 
-  if (is.null(custom_title)) custom_title <- paste0(spp_name, " - ", category)
-
+  # 5. Call your plotting function
   plot_bins_yr(x = y, ttle = custom_title, bin_size = bin_size, category = category, spp_name = spp_name, legend_mode = "year")
 }
-
 # Render collection of LF plots (top: individual years; bottom: combined category plots)
-render_LF_plots <- function(df, SPECIES_CD, COMNAME, max_size = NULL, yrs = c(2022, 2024),
-                            target_bins = 8, categories = c("1", "0", "2")) {
+# render_LF_plots <- function(df, SPECIES_CD, COMNAME, max_size = NULL, yrs = c(2022, 2024),
+#                             target_bins = 8, categories = c("1", "0", "2")) {
+#
+#   # ---- Compute bin size ----
+#   bin_size <- if (!is.null(manual_bin) && SPECIES_CD %in% names(manual_bin)) {
+#     manual_bin[[SPECIES_CD]]
+#   } else {
+#     compute_bin_size(max_size, target_bins)
+#   }
+#
+#   # Helper to coerce non-plot items to a spacer
+#   ensure_plot <- function(p) {
+#     ok <- inherits(p, c("gg", "ggplot", "patchwork"))
+#     if (isTRUE(ok)) return(p)
+#     patchwork::plot_spacer()
+#   }
+#
+#   # Individual year panels
+#   panels <- lapply(yrs, function(year) {
+#     MIR_LF(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = year, spp_name = COMNAME)
+#   })
+#   panels <- lapply(panels, ensure_plot)
+#
+#   # Combined category plots: build for requested categories (default includes "1","0","2")
+#   combined_cat_plots <- lapply(categories, function(cat) {
+#     title <- paste(COMNAME, "-", cat)
+#     p <- MIR_LF_yr(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = yrs,
+#                    spp_name = COMNAME, category = cat, custom_title = title)
+#     ensure_plot(p)
+#   })
+#
+#   # layout construction (2 per row)
+#   n_per_row <- 2
+#   if (length(panels) == 0) panels <- list()
+#
+#   n_needed <- n_per_row - (length(panels) %% n_per_row)
+#   if (n_needed != n_per_row) {
+#     panels <- c(panels, replicate(n_needed, patchwork::plot_spacer(), simplify = FALSE))
+#   }
+#
+#   row_panels <- split(panels, ceiling(seq_along(panels) / n_per_row))
+#   combined_rows <- lapply(row_panels, function(row) {
+#     row <- lapply(row, ensure_plot)
+#     if (length(row) == 1) return(row[[1]])
+#     Reduce(`|`, row)
+#   })
+#   combined_years <- if (length(combined_rows) > 0) {
+#     if (length(combined_rows) == 1) combined_rows[[1]] else Reduce(`/`, combined_rows)
+#   } else {
+#     NULL
+#   }
+#
+#   # bottom rows for category plots
+#   bottom_rows <- list()
+#   if (length(combined_cat_plots) > 0) {
+#     n_needed_cat <- n_per_row - (length(combined_cat_plots) %% n_per_row)
+#     if (n_needed_cat != n_per_row) {
+#       combined_cat_plots <- c(combined_cat_plots, replicate(n_needed_cat, patchwork::plot_spacer(), simplify = FALSE))
+#     }
+#     cat_row_panels <- split(combined_cat_plots, ceiling(seq_along(combined_cat_plots) / n_per_row))
+#     bottom_rows <- lapply(cat_row_panels, function(row) {
+#       row <- lapply(row, ensure_plot)
+#       if (length(row) == 1) return(row[[1]])
+#       Reduce(`|`, row)
+#     })
+#   }
+#
+#   bottom_row <- NULL
+#   if (length(bottom_rows) == 1) {
+#     bottom_row <- bottom_rows[[1]]
+#   } else if (length(bottom_rows) > 1) {
+#     bottom_row <- Reduce(`/`, bottom_rows)
+#   }
+#
+#   # stack top and bottom
+#   final_plot <- NULL
+#   if (!is.null(combined_years) && !is.null(bottom_row)) {
+#     final_plot <- combined_years / bottom_row
+#   } else if (!is.null(combined_years)) {
+#     final_plot <- combined_years
+#   } else {
+#     final_plot <- bottom_row
+#   }
+#
+#   invisible(final_plot)
+# }
+
+# Manually adjust the bin size based on species code (unchanged)
+manual_bin <- c("HAE FLAV" = 5, "CEP CRUE" = 5, "CAL CALA" = 5, "CAL NODO" = 5)
+
+render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME, max_size = NULL, yrs = c(2022, 2024),
+                                   target_bins = 8) {
 
   # ---- Compute bin size ----
-  bin_size <- if (!is.null(manual_bin) && SPECIES_CD %in% names(manual_bin)) {
+  # Uses a global manual_bin list if it exists, otherwise calculates based on max_size
+  bin_size <- if (exists("manual_bin") && SPECIES_CD %in% names(manual_bin)) {
     manual_bin[[SPECIES_CD]]
   } else {
     compute_bin_size(max_size, target_bins)
   }
 
-  # Helper to coerce non-plot items to a spacer
+  # Helper to ensure empty spaces are handled if plots fail
   ensure_plot <- function(p) {
-    ok <- inherits(p, c("gg", "ggplot", "patchwork"))
-    if (isTRUE(ok)) return(p)
+    if (inherits(p, c("gg", "ggplot", "patchwork"))) return(p)
     patchwork::plot_spacer()
   }
 
-  # Individual year panels
+  # 1. Generate individual year panels using your existing MIR_LF function
   panels <- lapply(yrs, function(year) {
     MIR_LF(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = year, spp_name = COMNAME)
   })
   panels <- lapply(panels, ensure_plot)
 
-  # Combined category plots: build for requested categories (default includes "1","0","2")
-  combined_cat_plots <- lapply(categories, function(cat) {
-    title <- paste(COMNAME, "-", cat)
-    p <- MIR_LF_yr(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = yrs,
-                   spp_name = COMNAME, category = cat, custom_title = title)
-    ensure_plot(p)
-  })
-
-  # layout construction (2 per row)
+  # 2. Layout construction (Arrange in rows of 2)
   n_per_row <- 2
-  if (length(panels) == 0) panels <- list()
+  if (length(panels) == 0) return(NULL)
 
+  # Add spacers if we have an odd number of plots to keep the grid aligned
   n_needed <- n_per_row - (length(panels) %% n_per_row)
   if (n_needed != n_per_row) {
     panels <- c(panels, replicate(n_needed, patchwork::plot_spacer(), simplify = FALSE))
   }
 
+  # Split panels into groups of 2 for row construction
   row_panels <- split(panels, ceiling(seq_along(panels) / n_per_row))
+
+  # Combine columns within each row (|) and then stack rows (/)
   combined_rows <- lapply(row_panels, function(row) {
-    row <- lapply(row, ensure_plot)
     if (length(row) == 1) return(row[[1]])
     Reduce(`|`, row)
   })
-  combined_years <- if (length(combined_rows) > 0) {
-    if (length(combined_rows) == 1) combined_rows[[1]] else Reduce(`/`, combined_rows)
+
+  final_plot <- if (length(combined_rows) == 1) {
+    combined_rows[[1]]
   } else {
-    NULL
+    Reduce(`/`, combined_rows)
   }
 
-  # bottom rows for category plots
-  bottom_rows <- list()
-  if (length(combined_cat_plots) > 0) {
-    n_needed_cat <- n_per_row - (length(combined_cat_plots) %% n_per_row)
-    if (n_needed_cat != n_per_row) {
-      combined_cat_plots <- c(combined_cat_plots, replicate(n_needed_cat, patchwork::plot_spacer(), simplify = FALSE))
-    }
-    cat_row_panels <- split(combined_cat_plots, ceiling(seq_along(combined_cat_plots) / n_per_row))
-    bottom_rows <- lapply(cat_row_panels, function(row) {
-      row <- lapply(row, ensure_plot)
-      if (length(row) == 1) return(row[[1]])
-      Reduce(`|`, row)
-    })
-  }
-
-  bottom_row <- NULL
-  if (length(bottom_rows) == 1) {
-    bottom_row <- bottom_rows[[1]]
-  } else if (length(bottom_rows) > 1) {
-    bottom_row <- Reduce(`/`, bottom_rows)
-  }
-
-  # stack top and bottom
-  final_plot <- NULL
-  if (!is.null(combined_years) && !is.null(bottom_row)) {
-    final_plot <- combined_years / bottom_row
-  } else if (!is.null(combined_years)) {
-    final_plot <- combined_years
-  } else {
-    final_plot <- bottom_row
-  }
-
-  invisible(final_plot)
+  return(final_plot)
 }
-
-# Manually adjust the bin size based on species code (unchanged)
-manual_bin <- c("HAE FLAV" = 5, "CEP CRUE" = 5, "CAL CALA" = 5, "CAL NODO" = 5)

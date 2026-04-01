@@ -291,6 +291,13 @@ STTSTJ$sample_data <- STTSTJ$sample_data %>%
     )
   )
 
+STTSTJ$sample_data <- STTSTJ$sample_data %>%
+  mutate(
+    STRAT = case_when(
+      PROT == 1 & STRAT == "PVMTSHLW"  ~ "SCRSHLW",
+      TRUE ~ STRAT
+    )
+  )
 ##sample data check
 STTSTJ$sample_data %>%
   distinct(PRIMARY_SAMPLE_UNIT, PROT, STRAT) %>%
@@ -311,7 +318,7 @@ density_table <- map_dfr(spp_vec, function(spp) {
 
 })
 
-saveRDS(STTSTJ, file = "STTSTJ_03-04.rds")
+saveRDS(STTSTJ, file = "STTSTJ_03-05.rds")
 
 #STX
 
@@ -397,6 +404,7 @@ STX_strat_3.4 <- STX_strat_3.4 %>%
     .groups = "drop"
   )
 
+
 ## STX sample
 STX_points_notake <- STX_points_notake %>%
   mutate(
@@ -427,3 +435,45 @@ STX$sample_data <- STX$sample_data %>%
     PROT = coalesce(PROT_new, PROT)  # use PROT_new if it exists, otherwise keep old PROT
   ) %>%
   select(-PROT_new)  # remove the temporary column
+
+STX$sample_data <- STX$sample_data %>%
+  mutate(
+    STRAT = case_when(
+      STRAT == "SCRSHLW" ~ "PVMTSHLW",
+      STRAT == "BDRKSHLW" ~ "AGRFSHLW",
+      TRUE ~ STRAT
+    )
+  )
+
+STX$sample_data <- STX$sample_data %>%
+  mutate(
+    STRAT = case_when(
+      PROT == 2 & STRAT == "SCRDEEP"  ~ "PVMTSHLW",
+      PROT == 2 & STRAT == "AGRFDEEP" ~ "AGRFSHLW",
+      TRUE ~ STRAT
+    )
+  )
+
+STX$sample_data <- STX$sample_data %>%
+  filter(!grepl("DEEP", STRAT))
+
+STX_strat_3.4 <- STX_strat_3.4 %>%
+  mutate(
+    YEAR = 2025,
+    GRID_SIZE = 50,
+    STAGE_LEVEL = 1
+  )
+
+spp_vec1 <- c("EPI STRI", "OCY CHRY", "BAL VETU", "SPA VIRI")  # your species list
+
+density_table1 <- map_dfr(spp_vec, function(spp) {
+
+  getDomainDensity(STX, spp, merge_protected = FALSE) %>%
+    mutate(
+      species = spp,
+      cv = (sqrt(var) / density) * 100
+    )
+
+})
+
+saveRDS(STX, file = "STX_03-05.rds")

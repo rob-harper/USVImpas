@@ -1,5 +1,5 @@
 ---
-title: "USVI Marine Protected Area NCRMP Fish Survey Analyses DRY TORT TEST DATA"
+title: "USVI Marine Protected Area NCRMP Fish Survey Analyses"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 mail: "rob.harper@noaa.gov"
 github: "rob-harper/USVImpas"
@@ -62,11 +62,12 @@ source('code/USVImpas_plot_functions.R', local = knitr::knit_global())
 source('code/two_tail_t_test.R', local = knitr::knit_global())
 
 # Read in MIR data set
-USVImpas_data <- readRDS("../data/USVImpas_data.rds")
 
-DryTort_data <- readRDS("../data/DryTort_data.rds")
+STTSTJ <- readRDS("../data/STTSTJ_03-05.rds")
 
-STTSTJ <- readRDS("../data/STTSTJ.rds")
+STX <- readRDS("../data/STX_03-05.rds")
+
+
 
 
 # Read in additional species size data (used to generate LF plots)
@@ -79,31 +80,27 @@ community_data <- readRDS("../data/community_data.rds")
 
 \newpage
 
-## Introduction
+# Introduction
 
 Fishy fish in the USVI prot areas
 
-\newpage
-### Maps of Protected Areas
-
-### EEMP
-insert map image
-
-### STEER
-insert map image
+USVI Department of Planning and Natural Resources (DPNR) Division of Fish and Wildlife (DFW) and Division of Territorial Parks and Protected Areas
 
 \newpage
 
-## Data Analyses
+# St. Thomas and St. John
 
-Text about analyses of data inside and out of prot areas 
+map of area and description of work
 
+## Strata
 
-### Strata
+description of strat trim
+
 ```{r echo=FALSE}
-render_strata_table(USVImpas_data$sample_data, 
-                    caption = "Table 1: Number of reef fish survey sites in each stratum inside USVI Marine Protected Areas and outside")
+render_strata_table_STTSTJ(STTSTJ$sample_data, 
+                    caption = "Table 1: Number of reef fish survey sites in each stratum inside and outside St. Thomas and St. John Marine Protected Areas ")
 ```
+## Species
 
 ```{r echo=FALSE}
 # To add species to the document, add species code here
@@ -113,7 +110,7 @@ target_species <- c(
 
 # Build spp_list dynamically with image paths for later use in tables/plots
 
-spp_list <- USVImpas_data$taxonomic_data %>%
+spp_list <- STTSTJ$taxonomic_data %>%
   filter(SPECIES_CD %in% target_species) %>%
   select(SPECIES_CD, COMNAME, SCINAME) %>%
   distinct() %>%
@@ -125,7 +122,90 @@ spp_list <- USVImpas_data$taxonomic_data %>%
   )
 
 render_species_table(spp_list, caption = 
-                       "Table 2:  Fish species with representative photos. Difficult to distinguish species were combined for analyses")
+                       "Table 3:  Fish species with representative photos. Difficult to distinguish species were combined for analyses")
+```
+
+## Density
+
+Relative density is an index or relative measure of population density that is commonly used in fisheries surveys. Relative density is a comparative measure of density across locations or years, rather than an absolute count that is impractical due to the scale and complexity of the marine environment. Densities shown here represent NCRMP’s fish survey area (177m2).
+
+Density specific text to this proj
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+USVI_domain_dens_by_year(STTSTJ, spp_list, caption = str_wrap( 
+                        "Update caption text", width = 100))
+```
+
+## Occurrence
+
+Monitoring species occurrence, or how often a species is detected in surveys, offers valuable insight into its distribution. This metric provides presence data regardless of abundance, which helps to identify whether a species is widespread or rare. For resource managers, species occurrence can be used as a bioindicator of overall ecosystem health and to evaluate the success of restoration projects. A consistently higher occurrence of a fish species, especially of a rare species or an obligate coral dweller, within coral restoration areas serves as an indicator of high-quality habitat.
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+USVI_domain_occ_by_year(STTSTJ, spp_list, caption = str_wrap(
+                        "Update caption text", width = 100))
+```
+
+## Length Frequency
+
+
+```{r, echo=FALSE, results='asis', fig.width=20, fig.height=8}
+#Length frequency plots
+pwalk(
+  spp_list,
+  function(SPECIES_CD, COMNAME, SCINAME, max_size, ...) {
+    cat("###", COMNAME, "\n\n")
+    p <- render_LF_plots_simple(
+      df         = STTSTJ,   
+      SPECIES_CD = SPECIES_CD,
+      COMNAME    = COMNAME,
+      max_size   = max_size,
+      yrs        = unique(STTSTJ$sample_data$YEAR),
+      target_bins = 12
+    )
+    print(p)
+    cat("\n\n")
+  }
+)
+```
+
+# St. Croix
+## Maps of Protected Areas
+
+### EEMP
+insert map image
+
+
+\newpage
+
+
+## Strata
+```{r echo=FALSE}
+render_strata_table_STTSTJ(STX$sample_data, 
+                    caption = "Table 2: Number of reef fish survey sites in each stratum inside and outside St. Croix Marine Protected Areas")
+```
+## Species
+
+```{r echo=FALSE}
+# To add species to the document, add species code here
+target_species <- c(
+  "OCY CHRY", "EPI GUTT", "EPI STRI", "BAL VETU"
+)
+
+# Build spp_list dynamically with image paths for later use in tables/plots
+
+spp_list <- STTSTJ$taxonomic_data %>%
+  filter(SPECIES_CD %in% target_species) %>%
+  select(SPECIES_CD, COMNAME, SCINAME) %>%
+  distinct() %>%
+  arrange(match(SPECIES_CD, target_species)) %>%
+  left_join(community_data) %>%
+  mutate(
+    COMNAME = stringr::str_to_title(COMNAME),
+    img_path = file.path("species_photos", paste0(gsub(" ", "_", SPECIES_CD), ".png"))
+  )
+
+render_species_table(spp_list, caption = 
+                       "Table 3:  Fish species with representative photos. Difficult to distinguish species were combined for analyses")
 ```
 
 ## Density
@@ -136,22 +216,31 @@ Density specific text to this proj
 
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE}
-USVI_domain_dens_by_year(DryTort_data, spp_list, caption = str_wrap( 
+USVI_domain_dens_by_year(STX, spp_list, caption = str_wrap( 
                         "Update caption text", width = 100))
 ```
 
+## Occurrence
+
+Monitoring species occurrence, or how often a species is detected in surveys, offers valuable insight into its distribution. This metric provides presence data regardless of abundance, which helps to identify whether a species is widespread or rare. For resource managers, species occurrence can be used as a bioindicator of overall ecosystem health and to evaluate the success of restoration projects. A consistently higher occurrence of a fish species, especially of a rare species or an obligate coral dweller, within coral restoration areas serves as an indicator of high-quality habitat.
+
+
 ```{r, fig.width=12, fig.height=8, echo=FALSE}
-USVI_domain_occ_by_year(STTSTJ, spp_list, caption = str_wrap(
-                        "Update caption text. Dry tortugas data for testing", width = 100))
+USVI_domain_occ_by_year(STX, spp_list, caption = str_wrap(
+                        "Update caption text", width = 100))
 ```
-```{r, echo=FALSE, results='asis', fig.width=12, fig.height=10}
+
+## Length Frequency
+
+
+```{r, echo=FALSE, results='asis', fig.width=20, fig.height=8}
 #Length frequency plots
 pwalk(
   spp_list,
   function(SPECIES_CD, COMNAME, SCINAME, max_size, ...) {
-    cat("### ", COMNAME, "\n\n")
-    p <- render_LF_plots(
-      df         = STTSTJ,   
+    cat("###", COMNAME, "\n\n")
+    p <- render_LF_plots_simple(
+      df         = STX,   
       SPECIES_CD = SPECIES_CD,
       COMNAME    = COMNAME,
       max_size   = max_size,
