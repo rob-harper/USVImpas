@@ -1,85 +1,101 @@
 <style>
-/* Left-side CRCP logo */
+/* 1. Force the blue banner to be tall enough for the right logo box */
+.quarto-title-banner {
+  min-height: 250px !important; /* Prevents the box from hanging off the bottom */
+  display: flex !important;
+  align-items: center !important; /* Centers the title vertically */
+}
+
+/* 2. Squeeze the title text into the middle so it CANNOT touch the logos */
+.quarto-title {
+  padding-left: 350px !important;  /* Creates a hard barrier away from the NOAA logo */
+  padding-right: 350px !important; /* Creates a hard barrier away from the right logos */
+  margin: 0 auto !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+}
+
+.quarto-title .title {
+  margin: 0 auto !important;
+}
+
+/* 3. Left-side Primary Logo (NOAA) */
 .left-logo-container {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: 1.5rem;
+  left: 2rem;
   background-color: white;
-  padding: 0.5rem;
+  padding: 1rem 1.4rem;
   border-radius: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
   z-index: 10;
 }
 
 .left-logo-container img {
-  height: 100px;
+  height: 90px;
+  width: auto;
 }
 
-/* Right-side stacked logos */
+/* 4. Right-side Multi-Logo Container */
 .logo-container {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: 1.5rem;
+  right: 2rem;
+  background-color: white;
+  padding: 1.2rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  background-color: white;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  z-index: 10;
+  gap: 15px;
 }
 
-.logo-container img {
-  height: 50px;
+.logo-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
 }
 
-/* Table of contents font size */
-nav#TOC {
-  font-size: 0.85em;
+.logo-row img {
+  height: 65px;
+  width: auto;
 }
 
-/* Center the Quarto title block */
-.quarto-title .title {
-  margin-left: 180px;
-  text-align: center;
-  color: white;
+/* 5. Author and Affiliation Block */
+.author-affiliation-block {
+  margin-top: 1.5rem;
+  text-align: left;
 }
+
+nav#TOC { font-size: 0.85em; }
 </style>
 
 <div class="left-logo-container">
-  <img src="CRCP.png" alt="CRCP Logo">
+  <img src="noaa_logo.png" alt="NOAA Fisheries">
 </div>
 
 <div class="logo-container">
-  <img src="noaa_logo.png" alt="NOAA Logo">
-
+  <div class="logo-row">
+    <img src="CRCP.png" alt="CRCP Logo">
+    <img src="DPNR-logo.png" alt="DPNR Logo">
+    <img src="NPS.png" alt="NPS Logo">
+  </div>
+  <div class="logo-row">
+    <img src="USVI_DFW.svg" alt="USVI DFW Logo">
+    <img src="USVI_parks.png" alt="USVI Parks Logo">
+  </div>
 </div>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  // Select all anchor tags
-  document.querySelectorAll('a').forEach(function(link) {
-    // Only set target=_blank for external links (optional)
-    if (
-      link.href &&
-      link.hostname &&
-      link.hostname !== window.location.hostname
-    ) {
-      link.setAttribute('target', '_blank');
-      link.setAttribute('rel', 'noopener');
-    }
-  });
-});
-</script>
 
-<div style="text-align:left; margin-top: -1.5em;">
-  <p style="font-size:16px; margin-bottom:0.2em;">
-    <a href="https://github.com/rob-harper/USVImpas">Rob Harper</a><sup>2, 1</sup>,
+<div class="author-affiliation-block">
+  <p style="font-size:16px; font-weight:600; margin-bottom:0.2rem;">
+    <a href="https://github.com/rob-harper/USVImpas" target="_blank">Rob Harper</a><sup>2, 1</sup>,
     Jeremiah Blondeau<sup>1</sup>,
     Jay Grove<sup>1</sup>
   </p>
-
-  <p style="font-size:14px; margin-top:0.2em;">
+  <p style="font-size:14px; color:#444;">
     1 NOAA Fisheries, Southeast Fisheries Science Center<br>
     2 University of Miami, Cooperative Institute for Marine and Atmospheric Studies
   </p>

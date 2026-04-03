@@ -150,7 +150,8 @@ USVI_domain_dens_by_year <- function(dataset,
                                      length = NULL,
                                      year = NULL,
                                      title = NULL,
-                                     caption = NULL) {
+                                     caption = NULL,
+                                     legend_labels = c("0", "1", "2")) {
 
   if (is.null(species)) {
     stop("species must be provided and contain SPECIES_CD")
@@ -208,7 +209,7 @@ USVI_domain_dens_by_year <- function(dataset,
     dens$GROUP <- "All"
   }
 
-  # Debug info (remove after testing)
+  # Debug info
   message(glue::glue("Unique PROT levels in final data: {paste(unique(dens$PROT), collapse = ', ')}"))
   message(glue::glue("Total rows: {nrow(dens)}"))
 
@@ -222,13 +223,16 @@ USVI_domain_dens_by_year <- function(dataset,
       group = factor(PROT)
     )
   ) +
-    geom_line(linewidth = 1) +
+    geom_line(linewidth = 1.5) +
     geom_point(size = 2) +
     geom_errorbar(
       aes(ymin = density - SE, ymax = density + SE),
       width = 0.25,
       linewidth = 0.5
     ) +
+    # This maps your PROT factors (0,1,2) to custom labels
+    scale_color_manual(labels = legend_labels,
+                       values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
     labs(
       title   = title,
       caption = caption,
@@ -243,14 +247,14 @@ USVI_domain_dens_by_year <- function(dataset,
     ) +
     facet_wrap(~ GROUP, scales = "free_y")
 }
-
 #Occurrence function
 USVI_domain_occ_by_year <- function(dataset,
                                     species = NULL,
                                     length = NULL,
                                     year = NULL,
                                     title = NULL,
-                                    caption = NULL) {
+                                    caption = NULL,
+                                    legend_labels = c("0", "1", "2")) {
 
   # number of strata per year and protection level
   strat_number <- dataset$stratum_data %>%
@@ -280,13 +284,16 @@ USVI_domain_occ_by_year <- function(dataset,
                   y = occurrence,
                   color = factor(PROT),
                   group = factor(PROT))) +
-    geom_line(size = 1) +
+    geom_line(linewidth = 1) +
     geom_point(size = 2) +
     geom_errorbar(
       aes(ymin = occurrence - SE, ymax = occurrence + SE),
       width = 0.25,
-      size = 0.5
+      linewidth = 0.5
     ) +
+    # This maps your PROT factors (0,1,2) to custom labels
+    scale_color_manual(labels = legend_labels,
+                       values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
     labs(
       title   = title,
       caption = caption,
@@ -303,7 +310,6 @@ USVI_domain_occ_by_year <- function(dataset,
 
   return(p)
 }
-
 # Copy-pasteable: compute_bin_size, LF helpers, plotting, and render function.
 # Requires: tidyverse (dplyr/tidyr/purrr), ggplot2, patchwork, plus your getDomainLengthFrequency() and labeler()/theme_Publication().
 
@@ -422,7 +428,7 @@ plot_bins_yr <- function(x, ttle, bin_size, vline_at_lc = NULL, category = NULL,
 }
 
 # Length frequency for comparing inside/outside/other. Converts protected_status -> "0","1","2" (factor).
-MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name) {
+MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name, legend_labels = c("0", "1", "2")) {
 
   x <- getDomainLengthFrequency(df, species = spp, merge_protected = FALSE) %>%
     group_by(YEAR, SPECIES_CD, protected_status) %>%
@@ -444,13 +450,13 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name) {
     ungroup() %>%
     mutate(
       value = freq,
-      # Map protected_status to numeric-code strings: "0","1","2"
+      # Map protected_status to numeric-code strings and apply the dynamic labels
       variable = case_when(
         protected_status == 0 ~ "0",
         protected_status == 1 ~ "1",
         protected_status == 2 ~ "2",
         TRUE ~ as.character(protected_status)
-      ) %>% factor(levels = c("0", "1", "2"))
+      ) %>% factor(levels = c("0", "1", "2"), labels = legend_labels)
     )
 
   # pivot to wide then back to long, but ensure at least one bin column exists
@@ -470,9 +476,9 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name) {
     pivot_longer(cols = -all_of(id_cols), names_to = "bin", values_to = "value") %>%
     mutate(bin = as.numeric(bin))
 
-  # Final guard: if result is empty or bin all NA, create minimal row
+  # Final guard: if result is empty or bin all NA, create minimal row with correct label
   if (nrow(y) == 0 || all(is.na(y$bin))) {
-    y <- tibble(YEAR = yrs, SPECIES_CD = spp, variable = factor("0", levels = c("0", "1", "2")), bin = 0, value = 0)
+    y <- tibble(YEAR = yrs, SPECIES_CD = spp, variable = factor(legend_labels[1], levels = legend_labels), bin = 0, value = 0)
   }
 
   plot_bins(x = y, ttle = paste0(spp_name, " ", yrs), bin_size = bin_size, legend_mode = "category")
@@ -700,52 +706,53 @@ MIR_LF_yr <- function(df, spp, bin_size, yrs = NULL, spp_name, category, custom_
 manual_bin <- c("HAE FLAV" = 5, "CEP CRUE" = 5, "CAL CALA" = 5, "CAL NODO" = 5)
 
 render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME, max_size = NULL, yrs = c(2022, 2024),
-                                   target_bins = 8) {
+                                     target_bins = 8, legend_labels = c("0", "1", "2")) {
 
-  # ---- Compute bin size ----
-  # Uses a global manual_bin list if it exists, otherwise calculates based on max_size
-  bin_size <- if (exists("manual_bin") && SPECIES_CD %in% names(manual_bin)) {
-    manual_bin[[SPECIES_CD]]
-  } else {
-    compute_bin_size(max_size, target_bins)
-  }
+    # ---- Compute bin size ----
+    # Uses a global manual_bin list if it exists, otherwise calculates based on max_size
+    bin_size <- if (exists("manual_bin") && SPECIES_CD %in% names(manual_bin)) {
+      manual_bin[[SPECIES_CD]]
+    } else {
+      compute_bin_size(max_size, target_bins)
+    }
 
-  # Helper to ensure empty spaces are handled if plots fail
-  ensure_plot <- function(p) {
-    if (inherits(p, c("gg", "ggplot", "patchwork"))) return(p)
-    patchwork::plot_spacer()
-  }
+    # Helper to ensure empty spaces are handled if plots fail
+    ensure_plot <- function(p) {
+      if (inherits(p, c("gg", "ggplot", "patchwork"))) return(p)
+      patchwork::plot_spacer()
+    }
 
-  # 1. Generate individual year panels using your existing MIR_LF function
-  panels <- lapply(yrs, function(year) {
-    MIR_LF(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = year, spp_name = COMNAME)
-  })
-  panels <- lapply(panels, ensure_plot)
+    # 1. Generate individual year panels using your existing MIR_LF function
+    panels <- lapply(yrs, function(year) {
+      # Pass the legend_labels argument down here
+      MIR_LF(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = year, spp_name = COMNAME, legend_labels = legend_labels)
+    })
+    panels <- lapply(panels, ensure_plot)
 
-  # 2. Layout construction (Arrange in rows of 2)
-  n_per_row <- 2
-  if (length(panels) == 0) return(NULL)
+    # 2. Layout construction (Arrange in rows of 2)
+    n_per_row <- 2
+    if (length(panels) == 0) return(NULL)
 
-  # Add spacers if we have an odd number of plots to keep the grid aligned
-  n_needed <- n_per_row - (length(panels) %% n_per_row)
-  if (n_needed != n_per_row) {
-    panels <- c(panels, replicate(n_needed, patchwork::plot_spacer(), simplify = FALSE))
-  }
+    # Add spacers if we have an odd number of plots to keep the grid aligned
+    n_needed <- n_per_row - (length(panels) %% n_per_row)
+    if (n_needed != n_per_row) {
+      panels <- c(panels, replicate(n_needed, patchwork::plot_spacer(), simplify = FALSE))
+    }
 
-  # Split panels into groups of 2 for row construction
-  row_panels <- split(panels, ceiling(seq_along(panels) / n_per_row))
+    # Split panels into groups of 2 for row construction
+    row_panels <- split(panels, ceiling(seq_along(panels) / n_per_row))
 
-  # Combine columns within each row (|) and then stack rows (/)
-  combined_rows <- lapply(row_panels, function(row) {
-    if (length(row) == 1) return(row[[1]])
-    Reduce(`|`, row)
-  })
+    # Combine columns within each row (|) and then stack rows (/)
+    combined_rows <- lapply(row_panels, function(row) {
+      if (length(row) == 1) return(row[[1]])
+      Reduce(`|`, row)
+    })
 
-  final_plot <- if (length(combined_rows) == 1) {
-    combined_rows[[1]]
-  } else {
-    Reduce(`/`, combined_rows)
-  }
+    final_plot <- if (length(combined_rows) == 1) {
+      combined_rows[[1]]
+    } else {
+      Reduce(`/`, combined_rows)
+    }
 
-  return(final_plot)
+    return(final_plot)
 }
