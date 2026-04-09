@@ -247,6 +247,109 @@ USVI_domain_dens_by_year <- function(dataset,
     ) +
     facet_wrap(~ GROUP, scales = "free_y")
 }
+
+USVI_domain_dens_by_year_bar <- function(dataset,
+                                     species = NULL,
+                                     length = NULL,
+                                     year = NULL,
+                                     title = NULL,
+                                     caption = NULL,
+                                     legend_labels = c("0", "1", "2")) {
+
+  if (is.null(species)) {
+    stop("species must be provided and contain SPECIES_CD")
+  }
+
+  # number of strata per year and protection level
+  strat_number <- dataset$stratum_data %>%
+    reframe(strat_num = n_distinct(STRAT), .by = c(YEAR, PROT)) %>%
+    mutate(
+      YEAR = as_factor(YEAR),
+      PROT = as.integer(PROT)
+    )
+
+  # get densities for each PROT level
+  dens <- purrr::map_dfr(c(0, 1, 2), function(p) {
+    res <- tryCatch(
+      getDomainDensity(
+        dataset,
+        species$SPECIES_CD,
+        group = species,
+        years = year,
+        status = p,
+        length_bins = length
+      ),
+      error = function(e) {
+        message(glue::glue("Warning: getDomainDensity failed for PROT level {p}: {e$message}"))
+        return(NULL)
+      }
+    )
+
+    if (is.null(res) || nrow(res) == 0) {
+      return(tibble::tibble())
+    }
+
+    res %>%
+      tibble::as_tibble() %>%
+      mutate(
+        PROT = p,
+        SE   = sqrt(var),
+        YEAR = as_factor(YEAR)
+      )
+  }) %>%
+    filter(
+      if (!is.null(length) && "length_class" %in% names(.))
+        length_class == paste0(">= ", length)
+      else TRUE
+    ) %>%
+    left_join(strat_number, by = c("YEAR", "PROT"))
+
+  if (!"GROUP" %in% names(dens)) {
+    dens$GROUP <- "All"
+  }
+
+  # --- UPDATED PLOT SECTION ---
+  ggplot(
+    dens,
+    aes(
+      x = YEAR,
+      y = density,
+      fill = factor(PROT) # Use fill for bar interiors
+    )
+  ) +
+    # geom_col() creates the bars. position_dodge() puts them side-by-side.
+    geom_col(
+      position = position_dodge(width = 0.9),
+      color = "black", # Adds a thin border around bars
+      linewidth = 0.3
+    ) +
+    # Error bars must also be dodged by the same width to align with the bars
+    geom_errorbar(
+      aes(ymin = density - SE, ymax = density + SE),
+      position = position_dodge(width = 0.9),
+      width = 0.25,
+      linewidth = 0.5,
+      color = "black"
+    ) +
+    # Changed scale_color_manual to scale_fill_manual
+    scale_fill_manual(
+      labels = legend_labels,
+      values = c("#E41A1C", "#377EB8", "#4DAF4A")
+    ) +
+    labs(
+      title   = title,
+      caption = caption,
+      fill    = "Protection level", # Changed label from color to fill
+      x       = "Year",
+      y       = "Relative Density (177 ind/m²)"
+    ) +
+    theme_Publication(base_size = 15) +
+    theme(
+      plot.caption = element_text(hjust = 0.5, size = 14),
+      legend.text  = element_text(size = 12)
+    ) +
+    facet_wrap(~ GROUP, scales = "free_y")
+}
 #Occurrence function
 USVI_domain_occ_by_year <- function(dataset,
                                     species = NULL,
@@ -298,6 +401,75 @@ USVI_domain_occ_by_year <- function(dataset,
       title   = title,
       caption = caption,
       color   = "Protection level",
+      x       = "Year",
+      y       = "Relative Occurrence"
+    ) +
+    theme_Publication(base_size = 15) +
+    theme(
+      plot.caption = element_text(hjust = 0.5, size = 14),
+      legend.text  = element_text(size = 12)
+    ) +
+    facet_wrap(~ GROUP, scales = "free_y")
+
+  return(p)
+}
+
+USVI_domain_occ_by_year_bar <- function(dataset,
+                                    species = NULL,
+                                    length = NULL,
+                                    year = NULL,
+                                    title = NULL,
+                                    caption = NULL,
+                                    legend_labels = c("0", "1", "2")) {
+
+  # number of strata per year and protection level
+  strat_number <- dataset$stratum_data %>%
+    reframe(strat_num = n_distinct(STRAT), .by = c(YEAR, PROT)) %>%
+    mutate(YEAR = as_factor(YEAR))
+
+  # get occurrence for each PROT level
+  occ <- purrr::map_dfr(c(0, 1, 2), function(p) {
+    getDomainOccurrence(dataset,
+                        species$SPECIES_CD,
+                        group = species,
+                        years = year,
+                        status = p,
+                        length_bins = length) %>%
+      mutate(
+        PROT = p,
+        SE   = sqrt(var),
+        YEAR = as_factor(YEAR)
+      )
+  }) %>%
+    filter(if (!is.null(length)) length_class == paste0(">= ", length) else TRUE) %>%
+    left_join(strat_number, by = c("YEAR", "PROT"))
+
+  # --- BAR PLOT CONVERSION ---
+  p <- ggplot(occ,
+              aes(x = YEAR,
+                  y = occurrence,
+                  fill = factor(PROT))) + # Changed color to fill
+    geom_col(
+      position = position_dodge(width = 0.9),
+      color = "black", # Outline for the bars
+      linewidth = 0.3
+    ) +
+    geom_errorbar(
+      aes(ymin = occurrence - SE, ymax = occurrence + SE),
+      position = position_dodge(width = 0.9), # Must match geom_col width
+      width = 0.25,
+      linewidth = 0.5,
+      color = "black"
+    ) +
+    # Changed scale_color_manual to scale_fill_manual
+    scale_fill_manual(
+      labels = legend_labels,
+      values = c("#E41A1C", "#377EB8", "#4DAF4A")
+    ) +
+    labs(
+      title   = title,
+      caption = caption,
+      fill    = "Protection level", # Label for the legend
       x       = "Year",
       y       = "Relative Occurrence"
     ) +
