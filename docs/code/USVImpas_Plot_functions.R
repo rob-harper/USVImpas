@@ -232,7 +232,7 @@ USVI_domain_dens_by_year <- function(dataset,
     ) +
     # This maps your PROT factors (0,1,2) to custom labels
     scale_color_manual(labels = legend_labels,
-                       values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+                       values = c("#0072B2", "#009E73", "#000000")) +
     labs(
       title   = title,
       caption = caption,
@@ -334,7 +334,7 @@ USVI_domain_dens_by_year_bar <- function(dataset,
     # Changed scale_color_manual to scale_fill_manual
     scale_fill_manual(
       labels = legend_labels,
-      values = c("#E41A1C", "#377EB8", "#4DAF4A")
+      values = c("#0072B2", "#009E73", "#000000")
     ) +
     labs(
       title   = title,
@@ -396,7 +396,7 @@ USVI_domain_occ_by_year <- function(dataset,
     ) +
     # This maps your PROT factors (0,1,2) to custom labels
     scale_color_manual(labels = legend_labels,
-                       values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+                       values = c("#0072B2", "#009E73", "#000000")) +
     labs(
       title   = title,
       caption = caption,
@@ -464,7 +464,7 @@ USVI_domain_occ_by_year_bar <- function(dataset,
     # Changed scale_color_manual to scale_fill_manual
     scale_fill_manual(
       labels = legend_labels,
-      values = c("#E41A1C", "#377EB8", "#4DAF4A")
+      values = c("#0072B2", "#009E73", "#000000")
     ) +
     labs(
       title   = title,
@@ -502,9 +502,9 @@ compute_bin_size <- function(max_size, target_bins = 10) {
 
 # Robust bar-plot function for length-freq (category mode).
 # Uses ggplot's default fill colors and default legend labels.
-plot_bins <- function(x, ttle, bin_size, vline_at_lc = NULL, legend_mode = "category") {
+plot_bins <- function(x, ttle, bin_size, vline_at_lc = NULL, legend_mode = "category",
+                      fill_colors = c("#0072B2", "#009E73", "#000000")) { # 1. Add argument
 
-  # safe maximum bin (handles NA / empty cases)
   max_bin <- suppressWarnings(max(x$bin, na.rm = TRUE))
   if (!is.finite(max_bin) || max_bin <= 0) {
     max_bin <- 0L
@@ -512,7 +512,6 @@ plot_bins <- function(x, ttle, bin_size, vline_at_lc = NULL, legend_mode = "cate
     max_bin <- as.integer(max_bin)
   }
 
-  # breaks/labels only when we have bins
   if (max_bin > 0) {
     br <- seq_len(max_bin)
     la <- labeler(bin_num = max_bin, bin_size = bin_size)
@@ -527,19 +526,20 @@ plot_bins <- function(x, ttle, bin_size, vline_at_lc = NULL, legend_mode = "cate
 
   p <- ggplot(x, aes(x = factor(bin), y = value, fill = variable)) +
     geom_bar(stat = "identity", position = "dodge2", width = .9, color = "black", size = .5) +
+    # 2. Apply the custom colors here
+    scale_fill_manual(values = fill_colors) +
     theme_Publication(base_size = 20) +
     theme(
       legend.title = element_blank(),
       axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
       axis.text = element_text(size = 12)
     ) +
-    labs(title = ttle, fill = "Sampling Year") +
+    labs(title = ttle) + # Removed 'fill = "Sampling Year"' to avoid confusion
     ylab("Relative Frequency") +
     xlab("Fork Length (cm)")
 
   if (!is.null(x_scale)) p <- p + x_scale
 
-  # add vline only if we can compute a sensible x-intercept
   if (!is.null(vline_at_lc) && !is.null(bin_size) && bin_size > 0 && max_bin > 0) {
     xint <- vline_at_lc / bin_size
     if (is.finite(xint) && xint >= 1 && xint <= max_bin) {
@@ -549,7 +549,6 @@ plot_bins <- function(x, ttle, bin_size, vline_at_lc = NULL, legend_mode = "cate
 
   p
 }
-
 # Year-comparison bar-plot (fills by fill_key = "<code>_<YEAR>").
 # Uses ggplot defaults for color selection and legend labels.
 plot_bins_yr <- function(x, ttle, bin_size, vline_at_lc = NULL, category = NULL, spp_name = NULL, legend_mode = "year") {
@@ -600,7 +599,9 @@ plot_bins_yr <- function(x, ttle, bin_size, vline_at_lc = NULL, category = NULL,
 }
 
 # Length frequency for comparing inside/outside/other. Converts protected_status -> "0","1","2" (factor).
-MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name, legend_labels = c("0", "1", "2")) {
+MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
+                   legend_labels = c("0", "1", "2"),
+                   fill_colors = c("#0072B2", "#009E73", "#000000")) {
 
   x <- getDomainLengthFrequency(df, species = spp, merge_protected = FALSE) %>%
     group_by(YEAR, SPECIES_CD, protected_status) %>%
@@ -653,7 +654,11 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name, legend_labels = c("0
     y <- tibble(YEAR = yrs, SPECIES_CD = spp, variable = factor(legend_labels[1], levels = legend_labels), bin = 0, value = 0)
   }
 
-  plot_bins(x = y, ttle = paste0(spp_name, " ", yrs), bin_size = bin_size, legend_mode = "category")
+  plot_bins(x = y,
+            ttle = paste0(spp_name, " ", yrs),
+            bin_size = bin_size,
+            legend_mode = "category",
+            fill_colors = fill_colors)
 }
 
 # Length frequency for comparing a single category across recent years
@@ -877,22 +882,37 @@ MIR_LF_yr <- function(df, spp, bin_size, yrs = NULL, spp_name, category, custom_
 # Manually adjust the bin size based on species code (unchanged)
 manual_bin <- c("HAE FLAV" = 5, "CEP CRUE" = 5, "CAL CALA" = 5, "CAL NODO" = 5)
 
-render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME, max_size = NULL, yrs = c(2022, 2024),
-                                     target_bins = 8, legend_labels = c("0", "1", "2")) {
+render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME,
+                                   max_size = NULL,
+                                   yrs = c(2022, 2024),
+                                   target_bins = 8,
+                                   legend_labels = c("0", "1", "2"),
+                                   fill_colors = c("#999999", "#E69F00", "#56B4E9")) { # 1. Added default colors
 
-    # ---- Compute bin size ----
-    # Uses a global manual_bin list if it exists, otherwise calculates based on max_size
-    bin_size <- if (exists("manual_bin") && SPECIES_CD %in% names(manual_bin)) {
-      manual_bin[[SPECIES_CD]]
-    } else {
-      compute_bin_size(max_size, target_bins)
-    }
+  bin_size <- if (exists("manual_bin") && SPECIES_CD %in% names(manual_bin)) {
+    manual_bin[[SPECIES_CD]]
+  } else {
+    compute_bin_size(max_size, target_bins)
+  }
 
-    # Helper to ensure empty spaces are handled if plots fail
-    ensure_plot <- function(p) {
-      if (inherits(p, c("gg", "ggplot", "patchwork"))) return(p)
-      patchwork::plot_spacer()
-    }
+  ensure_plot <- function(p) {
+    if (inherits(p, c("gg", "ggplot", "patchwork"))) return(p)
+    patchwork::plot_spacer()
+  }
+
+  # 2. Pass fill_colors into the MIR_LF function
+  panels <- lapply(yrs, function(year) {
+    MIR_LF(
+      df            = df,
+      spp           = SPECIES_CD,
+      bin_size      = bin_size,
+      yrs           = year,
+      spp_name      = COMNAME,
+      legend_labels = legend_labels,
+      fill_colors   = fill_colors  # Ensure MIR_LF is set up to receive this!
+    )
+  })
+
 
     # 1. Generate individual year panels using your existing MIR_LF function
     panels <- lapply(yrs, function(year) {

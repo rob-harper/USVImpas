@@ -1,5 +1,6 @@
 ---
-title: "USVI Marine Protected Area NCRMP Fish Survey Analyses"
+title: "Assessing the Effectiveness of No-Take Marine Protected Areas in the U.S. Virgin Islands"
+subtitle: "An Analysis of Reef Fish Population Metrics"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 mail: "rob.harper@noaa.gov"
 github: "rob-harper/USVImpas"
@@ -69,40 +70,42 @@ community_data <- readRDS("../data/community_data.rds")
 
 # Introduction
 
-Resource managers aim to maintain a delicate balance between resource extraction and ecological resilience. In fisheries, common management tools include spatial protection, gear limitations, size or slot limits, and seasonal closures. Spatial protection or marine protected areas (MPAs) involves closing specific geographic areas to some or all fishing activities. MPAs that protect critical habitats like coral reefs or spawning grounds help to ensure fisheries sustainability and can improve their productivity. In turn, healthy fish populations help to bolster ecosystem resilience that supports the local culture and economy.
+Resource managers aim to maintain a delicate balance between resource extraction and ecological resilience. In fisheries, common management tools include spatial protection, gear limitations, size or slot limits, and seasonal closures. Spatial protection or marine protected areas (MPAs) involves closing specific geographic areas to some or all fishing activities. MPAs that protect critical habitats like coral reefs or spawning grounds help to ensure fisheries sustainability and can improve their productivity. In turn, healthy fish populations help to bolster ecosystem resilience that supports the local culture and economy. 
 
 In the U.S. Virgin Islands (USVI), there are multiple MPAs managed by either the USVI Department of Planning and Natural Resources (DPNR; territory) or the National Parks Service (NPS; federal) which encompass shallow water coral reefs. The no-take MPAs that prohibit extractive fishing activities include the St. Thomas East End Reserve (STEER) and Virgin Islands Coral Reef National Monument (VICR) in the northern USVI, as well as the St. Croix East End Marine Park (STXEEMP), Buck Island Reef National Monument (BUCK), and Salt River Bay National Historic Park and Ecological Preserve (SARI) on St. Croix.  
 
-To evaluate the effectiveness of MPAs for reef fishes targeted by the fishery, monitoring data are needed from both within the no-take MPAs and from the surrounding reef tract open to extractive fishing activities. The National Coral Reef Monitoring Program (NCRMP) conducts standardized reef fish surveys across the USVI reef tract, providing a solid framework for comparing and contextualizing the status of fishery-targeted reef fishes and the broader reef fish community (Feeley et al. 2025). In 2025, additional NCRMP fish surveys were conducted within STEER and STXEEMP to ensure a sufficient sample size for statistical comparisons between these no-take MPAs and the surrounding reef tract. 
+To evaluate the effectiveness of MPAs for reef fishes targeted by the fishery, monitoring data are needed from both within the no-take MPAs and from the surrounding reef tract open to extractive fishing activities. The National Coral Reef Monitoring Program (NCRMP) conducts standardized reef fish surveys across the USVI reef tract, providing a solid framework for comparing and contextualizing the status of fishery-targeted reef fishes and the broader reef fish community [@Feeley2025]. 
 
-All reef fish surveys used NCRMP’s sampling design and survey method. Non-extractive reef fish surveys occurred on hard-bottom reef habitats using a stratified-random, one-stage sampling design within 50 m × 50 m grid cells to ensure representative sampling across depth and rugosity strata (i.e., different habitats) [@CRCP2025; @Ault2021]. Surveys used a stationary-point-count method modified from Bohnsack and Bannerot (1986) where a two-diver team surveyed all fish within adjacent 15-m diameter cylinders centered on each diver. Within each cylinder, fishes were identified to the species level, tallied, and fork length was estimated to the nearest centimeter [@CRCP2025].
-
-This report shows population-level results of relative density, occurrence, and length frequency distributions of economically valuable fish species of interest to marine spatial planners and resource managers.
+This report shows results from inside and outside the no-take MPAs including population-level estimates of relative density, occurrence, and length frequency distributions for economically valuable fish species of interest to marine spatial planners and resource managers.
 
 
 ```{css, echo=FALSE}
-/* Overall legend container */
-.leaflet-control-legend {
-  font-size: 10px !important;       /* Text size */
-  line-height: 1.2 !important;      /* Spacing between lines */
-  max-width: 180px !important;      /* Wrap threshold */
-  white-space: normal !important;   
-  padding: 6px 8px !important;      /* Shrinks the blank space inside the box */
+/* Custom Legend Styling */
+.leaflet .legend {
+  font-size: 10px !important;
+  line-height: 1.4 !important;      /* Slightly more breath for multi-line labels */
+  max-width: 220px !important; 
+  padding: 8px 10px !important;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid #999;
+  border-radius: 4px;
 }
 
-/* The color squares in the legend */
-.leaflet-control-legend i {
-  width: 12px !important;           /* Shrinks the box width */
-  height: 12px !important;          /* Shrinks the box height */
-  margin-top: 1px !important;       /* Aligns the smaller box with the text */
-  margin-right: 6px !important;
+.leaflet .legend i {
+  width: 12px !important;
+  height: 12px !important;
+  float: left;
+  margin-right: 8px !important;
+  opacity: 0.8;
 }
 
-/* The Legend Title */
-.leaflet-control-legend h4 {
-  font-size: 11px !important;       /* Shrinks the title text */
-  margin-bottom: 4px !important;    /* Reduces gap below the title */
-  font-weight: bold !important;
+.leaflet .legend strong {
+  font-size: 11px !important;
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 5px !important;
+  display: block;
+  padding-bottom: 2px;
+}
 }
 ```
 
@@ -113,177 +116,86 @@ This report shows population-level results of relative density, occurrence, and 
 
 library(leaflet)
 library(sf)
-library(dplyr) # Needed for summarise() and na.omit()
+library(dplyr)
+library(here)
 
-# 1. FILE PATHS
-path_federal <- "C:/Users/rob.harper/Documents/USVImpas/maps/VIIS_VICR_BUIS_SARI.shp"
-path_eemp    <- "C:/Users/rob.harper/Documents/USVImpas/maps/EEMP.shp"
-path_steer   <- "C:/Users/rob.harper/Documents/USVImpas/maps/STEER.shp"
+# 1. DATA LOADING & FILTERING
+mpa_data   <- st_read(here::here("maps", "VIIS_VICR_BUIS_SARI.shp"), quiet = TRUE) %>% 
+  st_zm() %>% st_transform(4326)
 
-# 2. READ AND TRANSFORM ALL DATASETS
-mpa_data <- st_read(path_federal, quiet = TRUE) %>%
-  st_zm() %>% 
-  st_transform(4326)
+eemp_no_take <- st_read(here::here("maps", "EEMP.shp"), quiet = TRUE) %>% 
+  st_zm() %>% st_transform(4326) %>% 
+  filter(PARK_REGS == "No Take") 
 
-eemp_data <- st_read(path_eemp, quiet = TRUE) %>%
-  st_zm() %>% 
-  st_transform(4326)
-
-steer_data <- st_read(path_steer, quiet = TRUE) %>%
-  st_zm() %>% 
-  st_transform(4326) %>% 
+steer_data <- st_read(here::here("maps", "STEER.shp"), quiet = TRUE) %>% 
+  st_zm() %>% st_transform(4326) %>% 
   summarise()
 
-# 3. COLOR PALETTES & LEGEND BUILDER
-# Federal Parks
-park_palette <- colorFactor(
-  palette = c("#228B22", "#1E90FF", "#20B2AA", "#8B4513"),
-  levels = c(
-    "Virgin Islands National Park",
-    "Virgin Islands Coral Reef National Monument",
-    "Buck Island Reef National Monument",
-    "Salt River Bay National Historical Park and Ecological Preserve"
-  )
+# 2. DEFINING COLORS
+cols <- list(
+  vicr  = "#009E73",
+  buck  = "#009E73",
+  sari  = "#009E73",
+  steer = "#000000",
+  eemp  = "#000000" 
 )
 
-# EEMP Dynamic Palette
-eemp_palette <- colorFactor(palette = "Set1", domain = eemp_data$PARK_REGS)
-
-# --- UPDATED: Build Combined Territorial Legend Arrays ---
-# Get unique EEMP zones (ignoring any empty/NA rows)
-eemp_zones <- sort(unique(na.omit(eemp_data$PARK_REGS)))
-eemp_zone_colors <- eemp_palette(eemp_zones)
-
-# Apply your fix: Add the prefix to clearly identify them as EEMP zones
-eemp_labels <- paste("STXEEMP -", eemp_zones)
-
-# Combine the newly prefixed EEMP labels with STEER
-terr_labels <- c(eemp_labels, "St. Thomas East End Reserves (STEER)")
-terr_colors <- c(eemp_zone_colors, "#FF8C00")
-# ---------------------------------------------------
-
-bbox <- st_bbox(mpa_data)
-
-# 4. BUILD THE MAP
+# 3. MAP BUILDING
 leaflet() %>%
   addProviderTiles(providers$Esri.OceanBasemap, group = "Oceanic") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
   
-  fitBounds(lng1 = bbox[["xmin"]], lat1 = bbox[["ymin"]], 
-            lng2 = bbox[["xmax"]], lat2 = bbox[["ymax"]]) %>%
+  # --- POLYGONS ---
+  addPolygons(data = mpa_data %>% filter(UNIT_NAME == "Virgin Islands Coral Reef National Monument"), 
+              color = "white", weight = 1, fillColor = cols$vicr, fillOpacity = 0.7,
+              popup = "Virgin Islands Coral Reef National Monument", group = "Protected Areas") %>%
+  addPolygons(data = steer_data, 
+              color = "white", weight = 1, fillColor = cols$steer, fillOpacity = 0.7,
+              popup = "St. Thomas East End Reserves (STEER)", group = "Protected Areas") %>%
+  addPolygons(data = mpa_data %>% filter(UNIT_NAME == "Buck Island Reef National Monument"), 
+              color = "white", weight = 1, fillColor = cols$buck, fillOpacity = 0.7,
+              popup = "Buck Island Reef National Monument", group = "Protected Areas") %>%
+  addPolygons(data = mpa_data %>% filter(UNIT_NAME == "Salt River Bay National Historical Park and Ecological Preserve"), 
+              color = "white", weight = 1, fillColor = cols$sari, fillOpacity = 0.7,
+              popup = "Salt River Bay NHP & EP", group = "Protected Areas") %>%
+  addPolygons(data = eemp_no_take, 
+              color = "white", weight = 1, fillColor = cols$eemp, fillOpacity = 0.7,
+              popup = "St. Croix East End Marine Park (No Take Zone)", group = "Protected Areas") %>%
+
+  # --- LEGENDS (Order swapped so STT/STJ is on top) ---
   
-  # Add Federal Parks
-  addPolygons(
-    data = mpa_data,
-    color = "white",
-    weight = 1.5, 
-    fillColor = ~park_palette(UNIT_NAME), 
-    fillOpacity = 0.75,
-    popup = ~UNIT_NAME,
-    group = "Federal Parks",
-    highlightOptions = highlightOptions(weight = 3, color = "yellow", bringToFront = TRUE)
-  ) %>%
-  
-  # Add EEMP
-  addPolygons(
-    data = eemp_data,
-    color = "white",
-    weight = 1.5, 
-    fillColor = ~eemp_palette(PARK_REGS), 
-    fillOpacity = 0.75,
-    popup = ~paste("<b>East End Marine Park</b><br>Zone:", PARK_REGS), 
-    group = "EEMP",
-    highlightOptions = highlightOptions(weight = 3, color = "yellow", bringToFront = TRUE)
-  ) %>%
-  
-  # Add STEER
-  addPolygons(
-    data = steer_data,
-    color = "white",
-    weight = 1.5, 
-    fillColor = "#FF8C00", 
-    fillOpacity = 0.75,
-    popup = "St. Thomas East End Reserves (STEER)", 
-    group = "STEER",
-    highlightOptions = highlightOptions(weight = 3, color = "yellow", bringToFront = TRUE)
-  ) %>%
-  
-  # Legend for Federal Parks
+  # This one is called FIRST, so it stays at the very bottom
   addLegend(
     position = "bottomleft",
-    pal = park_palette,
-    values = mpa_data$UNIT_NAME,
-    title = "Federal Protected Areas",
+    colors = c(cols$buck, cols$sari, cols$eemp),
+    labels = c(
+      "Buck Island Reef National Monument (BUCK), no-take MPA",
+      "Salt River Bay National Historic Park and Ecological Preserve (SARI), no-take MPA",
+      "St. Croix East End Marine Park (STXEEMP), no-take MPA"
+    ),
+    title = "<strong>St. Croix</strong>",
     opacity = 0.8
   ) %>%
   
-  # --- NEW: Unified Territorial Legend ---
+  # This one is called SECOND, so it stacks ON TOP of St. Croix
   addLegend(
     position = "bottomleft",
-    colors = terr_colors,
-    labels = terr_labels,
-    title = "Territorial Parks",
+    colors = c(cols$steer, cols$vicr),
+    labels = c(
+      "St. Thomas East End Reserve (STEER), no-take MPA",
+      "Virgin Islands Coral Reef National Monument (VICR), no-take MPA"
+    ),
+    title = "<strong>St. Thomas and St. John</strong>",
     opacity = 0.8
   ) %>%
   
-  # Layer Control
+  # RESTORED: This creates the checkbox UI for basemaps
   addLayersControl(
     baseGroups = c("Oceanic", "Satellite"),
-    overlayGroups = c("Federal Parks", "EEMP", "STEER"),
+    overlayGroups = c("Protected Areas"),
     options = layersControlOptions(collapsed = FALSE)
   )
 ```
-
-
-# Methods
-
-Methods paragraph
-
-# Data Analyses
-Data collected by the diver pair were averaged at the site level. Standard fish metrics, including relative density, occurrence, and length composition, were evaluated for a suite of selected individual fish species (table X). Computational formulas of standard metrics for a single-stage stratified random sampling design are modified from [@Smith2011] and provided in detail in [@Grove2021] and [@Bryan2016]. Fish analysis scripts are open source and available through the [NCRMP Fish R package](https://github.com/jeremiaheb/rvc) [@Ganz2015].
-
-## Strata
-
-::: {.panel-tabset}
-### St. Thomas and St. John
-In St. Thomas and St. John, we evaluated reef fishes from three distinct areas: (1) St. Thomas East End Reserves (STEER), a no-take MPA managed by DPNR; (2) Virgin Islands Coral Reef National Monument (VICR), a no-take MPA managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the bedrock deep and shallow strata were combined to create single bedrock strata with an adequate sample size for analyses. 
-
-```{r echo=FALSE}
-render_strata_table_STTSTJ(STTSTJ$sample_data, 
-                           caption = "Table 1: Number of reef fish survey sites in each stratum inside and outside St. Thomas and St. John Marine Protected Areas ")
-```
-
-### St. Croix
-In St. Croix, we evaluated reef fishes from three distinct areas: (1) St. Croix East End Marine Park (STXEEMP), a no-take MPA managed by DPNR; (2) Buck Island Reef National Monument (BUCK) and Salt River Bay National Historic Park and Ecological Preserve (SARI), two no-take MPAs managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the NCRMP and BUCK strata were restricted to the shallow strata found within STXEEMP and SARI (i.e., shallow aggregate, shallow patch, and shallow pavement). Strata with limited surveys were combined to achieve an adequate sample size for analyses (i.e., shallow scattered coral and rock + shallow pavement, shallow bedrock + shallow aggregate reef). 
-```{r echo=FALSE}
-render_strata_table_STTSTJ(STX$sample_data, 
-                           caption = "Table 2: Number of reef fish survey sites in each stratum inside and outside St. Croix Marine Protected Areas")
-```
-:::
-## Density
-
-Relative density is an index or relative measure of population density that is commonly used in fisheries surveys. Relative density is a comparative measure of density across locations or years, rather than an absolute count that is impractical due to the scale and complexity of the marine environment. Densities shown here represent NCRMP’s fish survey area (177m2).
-
-NCRMP surveys capture a snapshot of coral reef fish populations within no-take MPAs and the surrounding reef tract. Since it is common for fish populations to fluctuate annually, whenever possible, resource managers should evaluate multiple years of fish density data to inform and assess management efforts. Consistently higher or increasing densities over time within no-take MPAs suggests these areas are effectively protecting critical habitat for fishery-targeted species
-
-
-## Occurrence
-
-Monitoring species occurrence, or how often a species is detected in surveys, offers valuable insight into its distribution. This metric provides presence data regardless of abundance, which helps to identify whether a species is widespread or rare. For resource managers, species occurrence can be used as a bioindicator of overall ecosystem health and to evaluate the success of no-take marine protected areas. A consistently higher occurrence of a fish species, especially of a fishery-target species, within a no-take MPA can serve as an indicator of management success.
-
-
-## Length Frequency
-
-Length compositions provide a detailed description of a fish’s population structure. These highly informative figures can show the length at which a species recruits to the coral reef from their nursery habitat, the length classes that are selected by local recreational and commercial fisheries, and the effectiveness of fisheries management regulations. Successful marine spatial protection can yield greater densities and larger sizes of fishery-target species.
-
-Relative length frequency by fork length (cm) bin is shown for each species, sampling domain (St. Croix and St. Thomas/St. John), and no-take MPA (i.e., territory and federal).
-
-
-
-
-# Results {.tabset .tabset-pills}
-
-## St Thomas and St. John
 
 ```{r include=FALSE}
 # SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
@@ -303,15 +215,66 @@ spp_list_STTSTJ <- STTSTJ$taxonomic_data %>%
   )
 ```
 
-::: {.panel-tabset}
+```{r include=FALSE}
+# SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
 
-### Species
+target_species <- c("OCY CHRY", "EPI GUTT", "EPI STRI", "BAL VETU")
 
+spp_list_STX <- STX$taxonomic_data %>%
+  filter(SPECIES_CD %in% target_species) %>%
+  select(SPECIES_CD, COMNAME, SCINAME) %>%
+  distinct() %>%
+  arrange(match(SPECIES_CD, target_species)) %>%
+  left_join(community_data) %>%
+  mutate(
+    COMNAME = stringr::str_to_title(COMNAME),
+    img_path = file.path("species_photos", paste0(gsub(" ", "_", SPECIES_CD), ".png"))
+  )
+```
+
+
+# Methods
+
+## Survey Design
+
+In 2025, reef fish surveys at no-take MPAs and at sites throughout the USVI both used NCRMP's sampling design and method. Non-extractive reef fish surveys occurred on hard-bottom reef habitats using a stratified-random, one-stage sampling design within 50 m × 50 m grid cells to ensure representative sampling across depth and rugosity strata (i.e., different habitats) [@CRCP2025; @Ault2021]. Surveys used a stationary-point-count method modified from Bohnsack and Bannerot (1986) where a two-diver team surveyed all fish within adjacent 15-m diameter cylinders centered on each diver. Within each cylinder, fishes were identified to the species level, tallied, and fork length was estimated to the nearest centimeter [@CRCP2025].
+
+## Data Analyses
+Data collected by the diver pair were averaged at the site level. Standard fish metrics, including relative density, occurrence, and length composition, were evaluated for a suite of selected individual fish species (table X). Computational formulas of standard metrics for a single-stage stratified random sampling design are modified from [@Smith2011] and provided in detail in [@Grove2021] and [@Bryan2016]. Fish analysis scripts are open source and available through the [NCRMP Fish R package](https://github.com/jeremiaheb/rvc) [@Ganz2015].
+
+
+### St. Thomas and St. John
+In St. Thomas and St. John, we evaluated reef fishes from three distinct areas: (1) St. Thomas East End Reserves (STEER), a no-take MPA managed by DPNR; (2) Virgin Islands Coral Reef National Monument (VICR), a no-take MPA managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the bedrock deep and shallow strata were combined to create single bedrock strata with an adequate sample size for analyses. 
+
+```{r echo=FALSE}
+render_strata_table_STTSTJ(STTSTJ$sample_data, 
+                           caption = "Table 1: Number of reef fish survey sites in each stratum inside and outside St. Thomas and St. John Marine Protected Areas ")
+```
+
+### St. Croix
+In St. Croix, we evaluated reef fishes from three distinct areas: (1) St. Croix East End Marine Park (STXEEMP), a no-take MPA managed by DPNR; (2) Buck Island Reef National Monument (BUCK) and Salt River Bay National Historic Park and Ecological Preserve (SARI), two no-take MPAs managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the NCRMP and BUCK strata were restricted to the shallow strata found within STXEEMP and SARI (i.e., shallow aggregate, shallow patch, and shallow pavement). Strata with limited surveys were combined to achieve an adequate sample size for analyses (i.e., shallow scattered coral and rock + shallow pavement, shallow bedrock + shallow aggregate reef). 
+```{r echo=FALSE}
+render_strata_table_STTSTJ(STX$sample_data, 
+                           caption = "Table 2: Number of reef fish survey sites in each stratum inside and outside St. Croix Marine Protected Areas")
+```
+
+## Species
+Economically valuable species targeted by USVI fisheries were selected for analyses.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 render_species_table(spp_list_STTSTJ, caption = "Table 3: Fish species with representative photos.")
 ```
 
-### Density
+
+# Results {.tabset .tabset-pills}
+
+## Density
+Relative density is an index or relative measure of population density that is commonly used in fisheries surveys. Relative density is a comparative measure of density across locations or years, rather than an absolute count that is impractical due to the scale and complexity of the marine environment. Densities shown here represent NCRMP’s fish survey area (177m2).
+
+NCRMP surveys capture a snapshot of coral reef fish populations within no-take MPAs and the surrounding reef tract. Since it is common for fish populations to fluctuate annually, whenever possible, resource managers should evaluate multiple years of fish density data to inform and assess management efforts. Consistently higher or increasing densities over time within no-take MPAs suggests these areas are effectively protecting critical habitat for fishery-targeted species.
+
+::: {.panel-tabset}
+
+### St. Thomas and St. John
 
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
@@ -320,8 +283,25 @@ USVI_domain_dens_by_year_bar(STTSTJ, spp_list_STTSTJ,
                          legend_labels = c("Open", "VICR", "STEER"))
 ```
 
-### Occurrence
+### St. Croix
 
+
+```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
+USVI_domain_dens_by_year_bar(STX, spp_list_STX, 
+                         caption = str_wrap("Update caption text", width = 100), 
+                         legend_labels = c("Open", "BUCK/SARI", "EEMP"))
+```
+
+:::
+
+
+## Occurrence
+
+Monitoring species occurrence, or how often a species is detected in surveys, offers valuable insight into its distribution. This metric provides presence data regardless of abundance, which helps to identify whether a species is widespread or rare. For resource managers, species occurrence can be used as a bioindicator of overall ecosystem health and to evaluate the success of no-take marine protected areas. A consistently higher occurrence of a fish species, especially of a fishery-target species, within a no-take MPA can serve as an indicator of management success.
+
+::: {.panel-tabset}
+
+### St. Thomas and St. John
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_occ_by_year_bar(STTSTJ, spp_list_STTSTJ, 
@@ -329,10 +309,27 @@ USVI_domain_occ_by_year_bar(STTSTJ, spp_list_STTSTJ,
                         legend_labels = c("Open", "VICR", "STEER"))
 ```
 
-### Length Frequency
+### St. Croix
+
+```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
+USVI_domain_occ_by_year_bar(STX, spp_list_STX, 
+                        caption = str_wrap("Update caption text", width = 100), 
+                        legend_labels = c("Open", "BUCK/SARI", "EEMP"))
+```
+
+:::
+
+
+## Length Frequency
+
+Length compositions provide a detailed description of a fish’s population structure. These highly informative figures can show the length at which a species recruits to the coral reef from their nursery habitat, the length classes that are selected by local recreational and commercial fisheries, and the effectiveness of fisheries management regulations. Successful marine spatial protection can yield greater densities and larger sizes of fishery-target species.
+
+Relative length frequency by fork length (cm) bin is shown for each species, sampling domain (St. Croix and St. Thomas/St. John), and no-take MPA (i.e., territory and federal).
 
 ::: {.panel-tabset}
 
+### St. Thomas and St. John
+::: {.panel-tabset}
 ```{r}
 #| results: asis
 #| echo: false
@@ -356,7 +353,8 @@ pwalk(
       max_size      = max_size,
       yrs           = unique(STTSTJ$sample_data$YEAR),
       target_bins   = 12,
-      legend_labels = c("Open", "VICR", "STEER")
+      legend_labels = c("Open", "VICR", "STEER"),
+      fill_colors = c("#0072B2", "#009E73", "#000000")
     )
     
     # 3. Print the plot object explicitly
@@ -368,61 +366,11 @@ pwalk(
     cat("\n\n")
   }
 )
-```
 
+```
 :::
-
-:::
-
-## St. Croix
-
-```{r include=FALSE}
-# SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
-
-target_species <- c("OCY CHRY", "EPI GUTT", "EPI STRI", "BAL VETU")
-
-spp_list_STX <- STX$taxonomic_data %>%
-  filter(SPECIES_CD %in% target_species) %>%
-  select(SPECIES_CD, COMNAME, SCINAME) %>%
-  distinct() %>%
-  arrange(match(SPECIES_CD, target_species)) %>%
-  left_join(community_data) %>%
-  mutate(
-    COMNAME = stringr::str_to_title(COMNAME),
-    img_path = file.path("species_photos", paste0(gsub(" ", "_", SPECIES_CD), ".png"))
-  )
-```
-
+### St Croix
 ::: {.panel-tabset}
-
-### Species
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-render_species_table(spp_list_STX, caption = "Table 3: Fish species with representative photos.")
-```
-
-### Density
-
-```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
-USVI_domain_dens_by_year_bar(STX, spp_list_STX, 
-                         caption = str_wrap("Update caption text", width = 100), 
-                         legend_labels = c("Open", "BUCK/SARI", "EEMP"))
-```
-
-### Occurrence
-
-
-```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
-USVI_domain_occ_by_year_bar(STX, spp_list_STX, 
-                        caption = str_wrap("Update caption text", width = 100), 
-                        legend_labels = c("Open", "BUCK/SARI", "EEMP"))
-```
-
-### Length Frequency
-
-
-::: {.panel-tabset}
-
 ```{r}
 #| results: asis
 #| echo: false
@@ -446,7 +394,8 @@ pwalk(
       max_size      = max_size,
       yrs           = unique(STTSTJ$sample_data$YEAR),
       target_bins   = 12,
-      legend_labels = c("Open", "BUCK/SARI", "EEMP")
+      legend_labels = c("Open", "BUCK/SARI", "STXEEMP"),
+      fill_colors = c("#0072B2", "#009E73", "#000000")
     )
     
     # 3. Print the plot object explicitly
@@ -458,8 +407,30 @@ pwalk(
     cat("\n\n")
   }
 )
+
 ```
-
+:::
 :::
 
+# Points of Contact
+
+***
+
+* **Rob Harper** | [rob.harper@noaa.gov](mailto:rob.harper@noaa.gov)
+* **Jeremiah Blondeau** | [jeremiah.blondeau@noaa.gov](mailto:jeremiah.blondeau@noaa.gov)
+* **Jay Grove** | [jay.grove@noaa.gov](mailto:jay.grove@noaa.gov)
+
+***
+
+# References
+
+::: {#refs}
 :::
+
+---
+
+## Funding & Data Sources
+**Funding:** This work was funded by NOAA’s Coral Reef Conservation Program, project #31619 and NCRMP project #743.
+
+**Data Availability:** The NCRMP fish survey data used in this project is available through the NOAA National Centers for Environmental Information (NCEI) [here](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:NCRMP-Fish-USVI).
+
