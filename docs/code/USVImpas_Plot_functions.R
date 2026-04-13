@@ -1,5 +1,77 @@
-# Strata table
 render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by strata and study area") {
+
+  table <- df %>%
+    # Step 1: Assign merged or specific descriptions
+    mutate(
+      description = case_when(
+        # Keeping depths for these
+        STRAT == "AGRFDEEP" ~ "Aggregated reef, deep",
+        STRAT == "AGRFSHLW" ~ "Aggregated reef, shallow",
+        STRAT == "HARDDEEP" ~ "Hardbottom, deep",
+        STRAT == "HARDSHLW" ~ "Hardbottom, shallow",
+        STRAT == "PTRFDEEP" ~ "Patch reef, deep",
+        STRAT == "PTRFSHLW" ~ "Patch reef, shallow",
+
+        # Merging depths for these
+        STRAT %in% c("BDRK", "BDRKDEEP", "BDRKSHLW") ~ "Bedrock, all",
+        STRAT %in% c("PVMTDEEP", "PVMTSHLW")         ~ "Pavement, all",
+        STRAT %in% c("SCRDEEP",  "SCRSHLW")          ~ "Scattered coral and rock, all",
+
+        TRUE ~ STRAT
+      ),
+      # Format the Management Zones (PROT)
+      PROT = case_when(
+        PROT == 0 ~ "Open",
+        PROT == 1 ~ "VICR",
+        PROT == 2 ~ "STEER",
+        TRUE ~ as.character(PROT)
+      ),
+      PROT = factor(PROT, levels = c("Open", "VICR", "STEER"))
+    ) %>%
+    # Step 2: Group by description to combine the merged strata
+    group_by(description, PROT) %>%
+    summarise(n = n_distinct(PRIMARY_SAMPLE_UNIT), .groups = "drop") %>%
+    # Step 3: Pivot wide
+    tidyr::pivot_wider(names_from = PROT, values_from = n, values_fill = 0) %>%
+    arrange(description) %>%
+    # Step 4: Add totals for each region at the bottom
+    janitor::adorn_totals(where = "row", name = "Total")
+
+  # Table Rendering
+  if (knitr::is_html_output()) {
+    DT::datatable(
+      table,
+      class = "cell-border stripe",
+      rownames = FALSE,
+      colnames = c("Strata Description", "Open", "NPS", "STEER"),
+      caption = htmltools::tags$caption(
+        style = 'caption-side: top; text-align: left; font-weight: bold;',
+        caption
+      ),
+      options = list(
+        columnDefs = list(list(className = 'dt-center', targets = "_all")),
+        info = FALSE,
+        paging = FALSE,
+        searching = FALSE
+      )
+    )
+  } else {
+    knitr::kable(
+      table,
+      caption = caption,
+      booktabs = TRUE,
+      align = "lccc"
+    ) %>%
+      kableExtra::kable_styling(
+        latex_options = c("striped", "hold_position"),
+        font_size = 10
+      ) %>%
+      kableExtra::row_spec(nrow(table), bold = TRUE)
+  }
+}
+
+# Strata table
+render_strata_table_STX <- function(df, caption = "Number of sites sampled by strata and study area") {
 
   table <- df %>%
     group_by(PROT, STRAT) %>%
@@ -28,7 +100,7 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
         TRUE ~ as.character(PROT)
       ),
       # Ensure the columns appear in this specific order
-      PROT = factor(PROT, levels = c("Open", "NPS", "STEER"))
+      PROT = factor(PROT, levels = c("Open", "BUCK/SARI", "STXEEMP"))
     ) %>%
     select(description, STRAT, PROT, n) %>%
     # CHANGE: Pivot the Study Area (PROT) to columns
@@ -42,7 +114,7 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
       table,
       class = "cell-border stripe",
       rownames = FALSE,
-      colnames = c("Strata Description", "Code", "Open", "NPS", "STEER", "Total"),
+      colnames = c("Strata Description", "Open", "BUCK/SARI", "STXEEMP", "Total"),
       caption = htmltools::tags$caption(
         style = 'caption-side: top; text-align: left; font-weight: bold;',
         caption
