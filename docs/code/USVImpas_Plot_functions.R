@@ -13,9 +13,9 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
         STRAT == "PTRFSHLW" ~ "Patch reef, shallow",
 
         # Merging depths for these
-        STRAT %in% c("BDRK", "BDRKDEEP", "BDRKSHLW") ~ "Bedrock, all",
-        STRAT %in% c("PVMTDEEP", "PVMTSHLW")         ~ "Pavement, all",
-        STRAT %in% c("SCRDEEP",  "SCRSHLW")          ~ "Scattered coral and rock, all",
+        STRAT %in% c("BDRK") ~ "Bedrock, all",
+        STRAT %in% c("PVMT") ~ "Pavement, all",
+        STRAT %in% c("SCR")  ~ "Scattered coral and rock, all",
 
         TRUE ~ STRAT
       ),
@@ -34,7 +34,7 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
     # Step 3: Pivot wide
     tidyr::pivot_wider(names_from = PROT, values_from = n, values_fill = 0) %>%
     arrange(description) %>%
-    # Step 4: Add totals for each region at the bottom
+    # Step 4: Add totals for each region at the bottom (Row Only)
     janitor::adorn_totals(where = "row", name = "Total")
 
   # Table Rendering
@@ -43,7 +43,7 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
       table,
       class = "cell-border stripe",
       rownames = FALSE,
-      colnames = c("Strata Description", "Open", "NPS", "STEER"),
+      colnames = c("Strata Description", "Open", "VICR", "STEER"),
       caption = htmltools::tags$caption(
         style = 'caption-side: top; text-align: left; font-weight: bold;',
         caption
@@ -52,7 +52,16 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
         columnDefs = list(list(className = 'dt-center', targets = "_all")),
         info = FALSE,
         paging = FALSE,
-        searching = FALSE
+        searching = FALSE,
+        # JS logic to bold ONLY the row where the first cell is "Total"
+        rowCallback = DT::JS(
+          "function(row, data, index) {",
+          "  if (data[0] === 'Total') {",
+          "    $(row).css('font-weight', 'bold');",
+          "    $(row).css('background-color', '#f9f9f9');",
+          "  }",
+          "}"
+        )
       )
     )
   } else {
@@ -66,6 +75,7 @@ render_strata_table_STTSTJ <- function(df, caption = "Number of sites sampled by
         latex_options = c("striped", "hold_position"),
         font_size = 10
       ) %>%
+      # Bolds only the last row (the Total row)
       kableExtra::row_spec(nrow(table), bold = TRUE)
   }
 }
@@ -78,64 +88,54 @@ render_strata_table_STX <- function(df, caption = "Number of sites sampled by st
     summarise(n = n_distinct(PRIMARY_SAMPLE_UNIT), .groups = "drop") %>%
     mutate(
       description = case_when(
-        STRAT == "AGRFDEEP" ~ "Aggregated reef, deep",
-        STRAT == "AGRFSHLW" ~ "Aggregated reef, shallow",
-        STRAT == "BDRKDEEP" ~ "Bedrock reef, deep",
-        STRAT == "BDRKSHLW" ~ "Bedrock reef, shallow",
-        STRAT == "BDRK" ~ "Bedrock",
-        STRAT == "HARDDEEP" ~ "Hardbottom, deep",
-        STRAT == "HARDSHLW" ~ "Hardbottom, shallow",
-        STRAT == "PTRFDEEP" ~ "Patch reef, deep",
-        STRAT == "PTRFSHLW" ~ "Patch reef, shallow",
-        STRAT == "PVMTDEEP" ~ "Pavement, deep",
-        STRAT == "PVMTSHLW" ~ "Pavement, shallow",
-        STRAT == "SCRDEEP"  ~ "Scattered coral and rock, deep",
-        STRAT == "SCRSHLW"  ~ "Scattered coral and rock, shallow",
+        STRAT == "AGRFDEEP" ~ "Aggregated reef",
+        STRAT == "AGRFSHLW" ~ "Aggregated reef",
+        STRAT == "PTRFDEEP" ~ "Patch reef",
+        STRAT == "PTRFSHLW" ~ "Patch reef",
+        STRAT %in% c("PVMTDEEP", "PVMTSHLW") ~ "Pavement",
         TRUE ~ STRAT
       ),
-      PROT = case_when(
+      PROT_LABEL = case_when(
         PROT == 0 ~ "Open",
-        PROT == 1 ~ "NPS",
-        PROT == 2 ~ "STEER",
+        PROT == 1 ~ "BUCK/SARI",
+        PROT == 2 ~ "STXEEMP",
         TRUE ~ as.character(PROT)
       ),
-      # Ensure the columns appear in this specific order
-      PROT = factor(PROT, levels = c("Open", "BUCK/SARI", "STXEEMP"))
+      PROT_LABEL = factor(PROT_LABEL, levels = c("Open", "BUCK/SARI", "STXEEMP"))
     ) %>%
-    select(description, STRAT, PROT, n) %>%
-    # CHANGE: Pivot the Study Area (PROT) to columns
-    pivot_wider(names_from = PROT, values_from = n, values_fill = 0) %>%
-    # Optional: Add a Total column
-    mutate(Total = rowSums(select(., Open, NPS, STEER))) %>%
-    arrange(description)
+    group_by(description, PROT_LABEL) %>%
+    summarise(n = sum(n), .groups = "drop") %>%
+    pivot_wider(names_from = PROT_LABEL, values_from = n, values_fill = 0) %>%
+    arrange(description) %>%
+    # Adds ONLY the bottom row for totals
+    janitor::adorn_totals(where = "row", name = "Total")
 
   if (knitr::is_html_output()) {
     DT::datatable(
       table,
       class = "cell-border stripe",
       rownames = FALSE,
-      colnames = c("Strata Description", "Open", "BUCK/SARI", "STXEEMP", "Total"),
-      caption = htmltools::tags$caption(
-        style = 'caption-side: top; text-align: left; font-weight: bold;',
-        caption
-      ),
+      colnames = c("Strata Description", "Open", "BUCK/SARI", "STXEEMP"),
+      caption = htmltools::tags$caption(style = 'caption-side: top; text-align: left; font-weight: bold;', caption),
       options = list(
         columnDefs = list(list(className = 'dt-center', targets = "_all")),
-        info = FALSE,
-        paging = FALSE,
-        searching = FALSE
+        info = FALSE, paging = FALSE, searching = FALSE,
+        # JS logic to bold ONLY the row where the first cell is "Total"
+        rowCallback = DT::JS(
+          "function(row, data, index) {",
+          "  if (data[0] === 'Total') {",
+          "    $(row).css('font-weight', 'bold');",
+          "    $(row).css('background-color', '#f9f9f9');",
+          "  }",
+          "}"
+        )
       )
     )
   } else {
-    knitr::kable(
-      table,
-      caption = caption,
-      booktabs = TRUE,
-    ) %>%
-      kableExtra::kable_styling(
-        latex_options = c("striped", "hold_position"),
-        font_size = 10
-      )
+    knitr::kable(table, caption = caption, booktabs = TRUE, align = "lccc") %>%
+      kableExtra::kable_styling(latex_options = c("striped", "hold_position"), font_size = 10) %>%
+      # Bolds only the last row (the Total row)
+      kableExtra::row_spec(nrow(table), bold = TRUE)
   }
 }
 
@@ -160,7 +160,7 @@ render_species_table <- function(spp_list, caption = "Table 2: Fish Species") {
         ),
         ""
       )) %>%
-      select(SPECIES_CD, COMNAME, SCINAME, Photo)
+      select(COMNAME, SCINAME, Photo)
 
     htmltools::tagList(
       # Lightbox div + JS
@@ -180,7 +180,7 @@ render_species_table <- function(spp_list, caption = "Table 2: Fish Species") {
         escape = FALSE,
         class = "cell-border stripe",
         rownames = FALSE,
-        colnames = c("Species Code", "Common Name", "Scientific Name", "Photo"),
+        colnames = c("Common Name", "Scientific Name", "Photo"),
         caption = htmltools::tags$caption(
           style = 'caption-side: top; text-align: left; font-weight: bold;',
           caption
@@ -198,13 +198,13 @@ render_species_table <- function(spp_list, caption = "Table 2: Fish Species") {
     # PDF table with images (blank if missing)
     spp_table_pdf <- spp_list %>%
       mutate(Photo = paste0("\\includegraphics[width=3cm]{", img_path, "}")) %>%
-      select(SPECIES_CD, COMNAME, SCINAME, Photo)
+      select(COMNAME, SCINAME, Photo)
 
     knitr::kable(
       spp_table_pdf,
       format = "latex",
       caption = caption,
-      col.names = c("Species Code", "Common Name", "Scientific Name", "Photo"),
+      col.names = c("Common Name", "Scientific Name", "Photo"),
       booktabs = TRUE,
       escape = FALSE,
       longtable = TRUE

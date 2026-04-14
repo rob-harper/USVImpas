@@ -106,6 +106,10 @@ This report shows results from inside and outside the no-take MPAs including pop
   display: block;
   padding-bottom: 2px;
 }
+
+/* Fix the alignment issue caused by the Leaflet attribution */
+.leaflet-bottom.leaflet-left {
+  margin-bottom: 15px !important; /* Pushes the left legend up to match the right */
 }
 ```
 
@@ -142,31 +146,40 @@ cols <- list(
 
 # 3. MAP BUILDING
 leaflet() %>%
-  addProviderTiles(providers$Esri.OceanBasemap, group = "Oceanic") %>%
-  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+  # 1. THE BASE TILES
+  addProviderTiles("Esri.OceanBasemap", group = "Oceanic") %>%
+  addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
   
-  # --- POLYGONS ---
+  # 2. YOUR POLYGONS
   addPolygons(data = mpa_data %>% filter(UNIT_NAME == "Virgin Islands Coral Reef National Monument"), 
               color = "white", weight = 1, fillColor = cols$vicr, fillOpacity = 0.7,
+              label = "VICR",
               popup = "Virgin Islands Coral Reef National Monument", group = "Protected Areas") %>%
   addPolygons(data = steer_data, 
               color = "white", weight = 1, fillColor = cols$steer, fillOpacity = 0.7,
+              label = "STEER",
               popup = "St. Thomas East End Reserves (STEER)", group = "Protected Areas") %>%
   addPolygons(data = mpa_data %>% filter(UNIT_NAME == "Buck Island Reef National Monument"), 
               color = "white", weight = 1, fillColor = cols$buck, fillOpacity = 0.7,
+              label = "Buck Island",
               popup = "Buck Island Reef National Monument", group = "Protected Areas") %>%
   addPolygons(data = mpa_data %>% filter(UNIT_NAME == "Salt River Bay National Historical Park and Ecological Preserve"), 
               color = "white", weight = 1, fillColor = cols$sari, fillOpacity = 0.7,
+              label = "Salt River Bay NHP & EP",
               popup = "Salt River Bay NHP & EP", group = "Protected Areas") %>%
   addPolygons(data = eemp_no_take, 
               color = "white", weight = 1, fillColor = cols$eemp, fillOpacity = 0.7,
+              label = "STXEEMP (No Take)",
               popup = "St. Croix East End Marine Park (No Take Zone)", group = "Protected Areas") %>%
 
-  # --- LEGENDS (Order swapped so STT/STJ is on top) ---
-  
-  # This one is called FIRST, so it stays at the very bottom
+  # 3. THE LABELS (The "Google Maps" style overlay)
+  # This uses CartoDB's robust text-only layer. It stays transparent and draws text on top!
+  addProviderTiles("CartoDB.PositronOnlyLabels", group = "Oceanic") %>%
+  addProviderTiles("CartoDB.PositronOnlyLabels", group = "Satellite") %>% # Optional: Add it to satellite too!
+
+  # 4. LEGENDS
   addLegend(
-    position = "bottomleft",
+    position = "bottomright", 
     colors = c(cols$buck, cols$sari, cols$eemp),
     labels = c(
       "Buck Island Reef National Monument (BUCK), no-take MPA",
@@ -176,8 +189,6 @@ leaflet() %>%
     title = "<strong>St. Croix</strong>",
     opacity = 0.8
   ) %>%
-  
-  # This one is called SECOND, so it stacks ON TOP of St. Croix
   addLegend(
     position = "bottomleft",
     colors = c(cols$steer, cols$vicr),
@@ -189,7 +200,6 @@ leaflet() %>%
     opacity = 0.8
   ) %>%
   
-  # RESTORED: This creates the checkbox UI for basemaps
   addLayersControl(
     baseGroups = c("Oceanic", "Satellite"),
     overlayGroups = c("Protected Areas"),
@@ -201,7 +211,7 @@ leaflet() %>%
 # SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
 
 
-target_species <- c("OCY CHRY", "EPI GUTT", "EPI STRI", "BAL VETU")
+target_species <- c("OCY CHRY", "EPI GUTT", "SPA VIRI", "BAL VETU", "LUT APOD", "HAE FLAV")
 
 spp_list_STTSTJ <- STTSTJ$taxonomic_data %>%
   filter(SPECIES_CD %in% target_species) %>%
@@ -218,7 +228,7 @@ spp_list_STTSTJ <- STTSTJ$taxonomic_data %>%
 ```{r include=FALSE}
 # SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
 
-target_species <- c("OCY CHRY", "EPI GUTT", "EPI STRI", "BAL VETU")
+target_species <- c("OCY CHRY", "EPI GUTT", "SPA VIRI", "BAL VETU", "LUT APOD", "HAE FLAV")
 
 spp_list_STX <- STX$taxonomic_data %>%
   filter(SPECIES_CD %in% target_species) %>%
@@ -240,22 +250,22 @@ spp_list_STX <- STX$taxonomic_data %>%
 In 2025, reef fish surveys at no-take MPAs and at sites throughout the USVI both used NCRMP's sampling design and method. Non-extractive reef fish surveys occurred on hard-bottom reef habitats using a stratified-random, one-stage sampling design within 50 m × 50 m grid cells to ensure representative sampling across depth and rugosity strata (i.e., different habitats) [@CRCP2025; @Ault2021]. Surveys used a stationary-point-count method modified from Bohnsack and Bannerot (1986) where a two-diver team surveyed all fish within adjacent 15-m diameter cylinders centered on each diver. Within each cylinder, fishes were identified to the species level, tallied, and fork length was estimated to the nearest centimeter [@CRCP2025].
 
 ## Data Analyses
-Data collected by the diver pair were averaged at the site level. Standard fish metrics, including relative density, occurrence, and length composition, were evaluated for a suite of selected individual fish species (table X). Computational formulas of standard metrics for a single-stage stratified random sampling design are modified from [@Smith2011] and provided in detail in [@Grove2021] and [@Bryan2016]. Fish analysis scripts are open source and available through the [NCRMP Fish R package](https://github.com/jeremiaheb/rvc) [@Ganz2015].
+Data collected by the diver pair were averaged at the site level. Standard fish metrics, including relative density, occurrence, and length composition, were evaluated for a suite of selected individual fish species (table 3). Computational formulas of standard metrics for a single-stage stratified random sampling design are modified from [@Smith2011] and provided in detail in [@Grove2021] and [@Bryan2016]. Fish analysis scripts are open source and available through the [NCRMP Fish R package](https://github.com/jeremiaheb/rvc) [@Ganz2015].
 
 
 ### St. Thomas and St. John
-In St. Thomas and St. John, we evaluated reef fishes from three distinct areas: (1) St. Thomas East End Reserves (STEER), a no-take MPA managed by DPNR; (2) Virgin Islands Coral Reef National Monument (VICR), a no-take MPA managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the bedrock deep and shallow strata were combined to create single bedrock strata with an adequate sample size for analyses. 
+In St. Thomas and St. John, we evaluated reef fishes from three distinct areas: (1) St. Thomas East End Reserves (STEER), a no-take MPA managed by DPNR; (2) Virgin Islands Coral Reef National Monument (VICR), a no-take MPA managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. Data were broken down by habit type and depth. Shallow strata are sites less than 12m in depth, and deep 12-99m in depth. To allow for direct comparisons, deep and shallow strata were combined within the habitat types bedrock, scattered coral and rock, and pavement to ensure an adequate sample size for analyses.
 
 ```{r echo=FALSE}
 render_strata_table_STTSTJ(STTSTJ$sample_data, 
-                           caption = "Table 1: Number of reef fish survey sites in each stratum inside and outside St. Thomas and St. John Marine Protected Areas ")
+                           caption = "Table 1: Number of reef fish survey sites in each stratum inside and outside St. Thomas and St. John no-take marine protected areas ")
 ```
 
 ### St. Croix
-In St. Croix, we evaluated reef fishes from three distinct areas: (1) St. Croix East End Marine Park (STXEEMP), a no-take MPA managed by DPNR; (2) Buck Island Reef National Monument (BUCK) and Salt River Bay National Historic Park and Ecological Preserve (SARI), two no-take MPAs managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the NCRMP and BUCK strata were restricted to the shallow strata found within STXEEMP and SARI (i.e., shallow aggregate, shallow patch, and shallow pavement). Strata with limited surveys were combined to achieve an adequate sample size for analyses (i.e., shallow scattered coral and rock + shallow pavement, shallow bedrock + shallow aggregate reef). 
+In St. Croix, we evaluated reef fishes from three distinct areas: (1) St. Croix East End Marine Park (STXEEMP), a no-take MPA managed by DPNR; (2) Buck Island Reef National Monument (BUCK) and Salt River Bay National Historic Park and Ecological Preserve (SARI), two no-take MPAs managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the NCRMP and BUCK strata were restricted to the shallow strata (<12m) found within STXEEMP and SARI (i.e., shallow aggregate, shallow patch, and shallow pavement). Strata with limited surveys were combined to achieve an adequate sample size for analyses (i.e., shallow scattered coral and rock + shallow pavement, shallow bedrock + shallow aggregate reef). 
 ```{r echo=FALSE}
-render_strata_table_STTSTJ(STX$sample_data, 
-                           caption = "Table 2: Number of reef fish survey sites in each stratum inside and outside St. Croix Marine Protected Areas")
+render_strata_table_STX(STX$sample_data, 
+                           caption = "Table 2: Number of reef fish survey sites in each stratum inside and outside St. Croix no-take marine protected areas")
 ```
 
 ## Species
@@ -279,7 +289,7 @@ NCRMP surveys capture a snapshot of coral reef fish populations within no-take M
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_dens_by_year_bar(STTSTJ, spp_list_STTSTJ, 
-                         caption = str_wrap("Update caption text", width = 100), 
+                         caption = str_wrap("", width = 100), 
                          legend_labels = c("Open", "VICR", "STEER"))
 ```
 
@@ -288,8 +298,8 @@ USVI_domain_dens_by_year_bar(STTSTJ, spp_list_STTSTJ,
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_dens_by_year_bar(STX, spp_list_STX, 
-                         caption = str_wrap("Update caption text", width = 100), 
-                         legend_labels = c("Open", "BUCK/SARI", "EEMP"))
+                         caption = str_wrap("", width = 100), 
+                         legend_labels = c("Open", "BUCK/SARI", "STXEEMP"))
 ```
 
 :::
@@ -305,7 +315,7 @@ Monitoring species occurrence, or how often a species is detected in surveys, of
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_occ_by_year_bar(STTSTJ, spp_list_STTSTJ, 
-                        caption = str_wrap("Update caption text", width = 100), 
+                        caption = str_wrap("", width = 100), 
                         legend_labels = c("Open", "VICR", "STEER"))
 ```
 
@@ -313,8 +323,8 @@ USVI_domain_occ_by_year_bar(STTSTJ, spp_list_STTSTJ,
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_occ_by_year_bar(STX, spp_list_STX, 
-                        caption = str_wrap("Update caption text", width = 100), 
-                        legend_labels = c("Open", "BUCK/SARI", "EEMP"))
+                        caption = str_wrap("", width = 100), 
+                        legend_labels = c("Open", "BUCK/SARI", "STXEEMP"))
 ```
 
 :::
@@ -416,9 +426,14 @@ pwalk(
 
 ***
 
-* **Rob Harper** | [rob.harper@noaa.gov](mailto:rob.harper@noaa.gov)
-* **Jeremiah Blondeau** | [jeremiah.blondeau@noaa.gov](mailto:jeremiah.blondeau@noaa.gov)
-* **Jay Grove** | [jay.grove@noaa.gov](mailto:jay.grove@noaa.gov)
+NCRMP Atlantic and Caribbean Fish Team Lead: 
+**Jay Grove** ([jay.grove@noaa.gov](mailto:jay.grove@noaa.gov))
+
+NCRMP Atlantic and Caribbean Fish Data Manager: 
+**Jeremiah Blondeau** ([jeremiah.blondeau@noaa.gov](mailto:jeremiah.blondeau@noaa.gov))
+
+
+NCRMP Atlantic and Caribbean Fish Team: **Rob Harper** | [rob.harper@noaa.gov](mailto:rob.harper@noaa.gov)
 
 ***
 
