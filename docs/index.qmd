@@ -449,5 +449,7 @@ pwalk(
 ## Funding & Data Sources
 **Funding:** This work was funded by NOAA’s Coral Reef Conservation Program, project #31619 and NCRMP project #743.
 
-**Data Availability:** The NCRMP fish survey data used in this project is available through the NOAA National Centers for Environmental Information (NCEI) [here](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:NCRMP-Fish-USVI).
+**Data Availability:** The NCRMP fish survey data used in this project is available through the NOAA National Centers for Environmental Information (NCEI) [here](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0313688).
+
+NOAA Southeast Fisheries Science Center; NOAA National Centers for Coastal Ocean Science (2026). National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands from 2025-06-02 to 2025-08-14 (NCEI Accession 0313688). https://www.ncei.noaa.gov/archive/accession/0313688. In NOAA National Centers for Coastal Ocean Science. National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands. [indicate subset used]. NOAA National Centers for Environmental Information. Unpublished Dataset. https://doi.org/10.7289/v5f769mm. Accessed 4/15/2026.
 
