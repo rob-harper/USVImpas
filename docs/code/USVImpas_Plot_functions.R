@@ -92,7 +92,7 @@ render_strata_table_STX <- function(df, caption = "Number of sites sampled by st
         STRAT == "AGRFSHLW" ~ "Aggregated reef",
         STRAT == "PTRFDEEP" ~ "Patch reef",
         STRAT == "PTRFSHLW" ~ "Patch reef",
-        STRAT %in% c("PVMTDEEP", "PVMTSHLW") ~ "Pavement",
+        STRAT == "PVMTSHLW" ~ "Pavement",
         TRUE ~ STRAT
       ),
       PROT_LABEL = case_when(
@@ -401,7 +401,7 @@ USVI_domain_dens_by_year_bar <- function(dataset,
       position = position_dodge(width = 0.9),
       width = 0.25,
       linewidth = 0.5,
-      color = "black"
+      color = "gray"
     ) +
     # Changed scale_color_manual to scale_fill_manual
     scale_fill_manual(
@@ -531,7 +531,7 @@ USVI_domain_occ_by_year_bar <- function(dataset,
       position = position_dodge(width = 0.9), # Must match geom_col width
       width = 0.25,
       linewidth = 0.5,
-      color = "black"
+      color = "gray"
     ) +
     # Changed scale_color_manual to scale_fill_manual
     scale_fill_manual(

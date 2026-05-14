@@ -253,7 +253,7 @@ Data collected by the diver pair were averaged at the site level. Standard fish 
 
 
 ### St. Thomas and St. John
-In St. Thomas and St. John, we evaluated reef fishes from three distinct areas: (1) St. Thomas East End Reserves (STEER), a no-take MPA managed by DPNR; (2) Virgin Islands Coral Reef National Monument (VICR), a no-take MPA managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the bedrock deep and shallow strata were combined to create single bedrock strata with an adequate sample size for analyses. 
+In St. Thomas and St. John, we evaluated reef fishes from three distinct areas: (1) St. Thomas East End Reserves (STEER), a no-take MPA managed by DPNR; (2) Virgin Islands Coral Reef National Monument (VICR), a no-take MPA managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. Data were broken down by habit type and depth. Shallow strata are sites less than 12m in depth, and deep 12-99m in depth. To allow for direct comparisons, deep and shallow strata were combined within the habitat types bedrock, scattered coral and rock, and pavement to ensure an adequate sample size for analyses.
 
 ```{r echo=FALSE}
 render_strata_table_STTSTJ(STTSTJ$sample_data, 
@@ -263,7 +263,7 @@ render_strata_table_STTSTJ(STTSTJ$sample_data,
 ### St. Croix
 In St. Croix, we evaluated reef fishes from three distinct areas: (1) St. Croix East End Marine Park (STXEEMP), a no-take MPA managed by DPNR; (2) Buck Island Reef National Monument (BUCK) and Salt River Bay National Historic Park and Ecological Preserve (SARI), two no-take MPAs managed by NPS; and (3) Open, areas of the reef tract where extractive fishing is permitted. To allow for direct comparisons, the NCRMP and BUCK strata were restricted to the shallow strata found within STXEEMP and SARI (i.e., shallow aggregate, shallow patch, and shallow pavement). Strata with limited surveys were combined to achieve an adequate sample size for analyses (i.e., shallow scattered coral and rock + shallow pavement, shallow bedrock + shallow aggregate reef). 
 ```{r echo=FALSE}
-render_strata_table_STTSTJ(STX$sample_data, 
+render_strata_table_STX(STX$sample_data, 
                            caption = "Table 2: Number of reef fish survey sites in each stratum inside and outside St. Croix no-take marine protected areas")
 ```
 
@@ -314,7 +314,7 @@ Monitoring species occurrence, or how often a species is detected in surveys, of
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_occ_by_year_bar(STTSTJ, spp_list_STTSTJ, 
-                        caption = str_wrap("Update caption text", width = 100), 
+                        caption = str_wrap("", width = 100), 
                         legend_labels = c("Open", "VICR", "STEER"))
 ```
 
@@ -322,7 +322,7 @@ USVI_domain_occ_by_year_bar(STTSTJ, spp_list_STTSTJ,
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE, message=FALSE, warning=FALSE}
 USVI_domain_occ_by_year_bar(STX, spp_list_STX, 
-                        caption = str_wrap("Update caption text", width = 100), 
+                        caption = str_wrap("", width = 100), 
                         legend_labels = c("Open", "BUCK/SARI", "EEMP"))
 ```
 
@@ -433,9 +433,9 @@ pwalk(
 
 ***
 
-* **Rob Harper** | [rob.harper@noaa.gov](mailto:rob.harper@noaa.gov)
-* **Jeremiah Blondeau** | [jeremiah.blondeau@noaa.gov](mailto:jeremiah.blondeau@noaa.gov)
-* **Jay Grove** | [jay.grove@noaa.gov](mailto:jay.grove@noaa.gov)
+* **Rob Harper: ** NCRMP Atlantic Fish Team | [rob.harper@noaa.gov](mailto:rob.harper@noaa.gov)
+* **Jeremiah Blondeau:** NCRMP Atlantic Fish Team Data Manager | [jeremiah.blondeau@noaa.gov](mailto:jeremiah.blondeau@noaa.gov)
+* **Jay Grove:** NCRMP Atlantic Fish Team Lead | [jay.grove@noaa.gov](mailto:jay.grove@noaa.gov)
 
 ***
 
@@ -449,5 +449,7 @@ pwalk(
 ## Funding & Data Sources
 **Funding:** This work was funded by NOAA’s Coral Reef Conservation Program, project #31619 and NCRMP project #743.
 
-**Data Availability:** The NCRMP fish survey data used in this project is available through the NOAA National Centers for Environmental Information (NCEI) [here](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:NCRMP-Fish-USVI).
+**Data Availability:** The NCRMP fish survey data used in this project is available through the NOAA National Centers for Environmental Information (NCEI) [here](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0313688).
+
+Citation: NOAA Southeast Fisheries Science Center; NOAA National Centers for Coastal Ocean Science (2026). National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands from 2025-06-02 to 2025-08-14 (NCEI Accession 0313688). https://www.ncei.noaa.gov/archive/accession/0313688. In NOAA National Centers for Coastal Ocean Science (2018). National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands. NOAA National Centers for Environmental Information. Dataset. https://doi.org/10.7289/v5f769mm. Accessed [5.11.26].
 
