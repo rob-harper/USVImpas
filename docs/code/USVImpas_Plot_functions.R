@@ -675,27 +675,67 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
                    legend_labels = c("0", "1", "2"),
                    fill_colors = c("#0072B2", "#009E73", "#000000")) {
 
-  x <- getDomainLengthFrequency(df, species = spp, merge_protected = FALSE) %>%
+  # --- STEP 1: SAFE SEPARATION ---
+  all_prot_levels <- c(0, 1, 2)
+
+  present_prots <- df$sample_data %>%
+    dplyr::filter(SPECIES_CD == spp, YEAR == yrs, NUM > 0) %>%
+    dplyr::pull(PROT) %>%
+    unique()
+
+  is_missing_levels <- length(setdiff(all_prot_levels, present_prots)) > 0
+
+  if (is_missing_levels) {
+    raw_counts <- df$sample_data %>%
+      dplyr::filter(SPECIES_CD == spp, YEAR == yrs)
+
+    if (nrow(raw_counts) == 0) {
+      raw_rvc <- data.frame(
+        YEAR = yrs,
+        SPECIES_CD = spp,
+        protected_status = all_prot_levels,
+        length_class = 0, # Starts at 0
+        frequency = 0
+      )
+    } else {
+      raw_rvc <- raw_counts %>%
+        dplyr::rename(protected_status = PROT, length_class = LEN) %>%
+        dplyr::group_by(YEAR, SPECIES_CD, protected_status, length_class) %>%
+        dplyr::summarise(frequency = sum(NUM, na.rm = TRUE), .groups = "drop") %>%
+        tidyr::complete(YEAR = yrs, SPECIES_CD = spp, protected_status = all_prot_levels,
+                        fill = list(frequency = 0, length_class = 0)) # Fixed to 0
+    }
+
+  } else {
+    raw_rvc <- rvc::getDomainLengthFrequency(df, species = spp, merge_protected = FALSE)
+  }
+  # --------------------------------
+
+  # Step 2: Downstream processing pipe (With targeted bug fix)
+  x <- raw_rvc %>%
     group_by(YEAR, SPECIES_CD, protected_status) %>%
     nest() %>%
-    mutate(Lf = map(data, ~ .x %>%
-                      data.frame() %>%
-                      # Ensure at least one length_class for empty data
-                      full_join(., data.frame(length_class = if (nrow(.) > 0) seq(1, max(.$length_class), 0.5) else 1)) %>%
-                      select(length_class, frequency) %>%
-                      replace(is.na(.), 0) %>%
-                      mutate(bin = as.numeric(cut(length_class,
-                                                  breaks = seq(0, max(length_class, na.rm = TRUE) + bin_size, bin_size)))) %>%
-                      arrange(length_class) %>%
-                      group_by(bin) %>%
-                      summarise(freq = sum(frequency, na.rm = TRUE))
-    )) %>%
+    mutate(Lf = map(data, ~ {
+      # FIX: Define a safe sequence length that handles 0 maximums safely
+      max_len <- max(.x$length_class, na.rm = TRUE)
+      dummy_seq <- if (is.na(max_len) || max_len < 1) 0 else seq(1, max_len, 0.5)
+
+      .x %>%
+        data.frame() %>%
+        full_join(., data.frame(length_class = dummy_seq), by = "length_class") %>%
+        select(length_class, frequency) %>%
+        replace(is.na(.), 0) %>%
+        mutate(bin = as.numeric(cut(length_class,
+                                    breaks = seq(0, max(length_class, na.rm = TRUE) + bin_size, bin_size)))) %>%
+        arrange(length_class) %>%
+        group_by(bin) %>%
+        summarise(freq = sum(frequency, na.rm = TRUE))
+    })) %>%
     unnest(Lf) %>%
     select(YEAR, SPECIES_CD, protected_status, bin, freq) %>%
     ungroup() %>%
     mutate(
       value = freq,
-      # Map protected_status to numeric-code strings and apply the dynamic labels
       variable = case_when(
         protected_status == 0 ~ "0",
         protected_status == 1 ~ "1",
@@ -704,14 +744,12 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
       ) %>% factor(levels = c("0", "1", "2"), labels = legend_labels)
     )
 
-  # pivot to wide then back to long, but ensure at least one bin column exists
   y_wide <- x %>%
     filter(YEAR == yrs) %>%
     select(YEAR, SPECIES_CD, variable, bin, value) %>%
     pivot_wider(names_from = bin, values_from = value, values_fill = 0)
 
-  # If pivot_wider produced only id cols (no bins), add a dummy bin "0"
-  id_cols <- c("YEAR", "SPECIES_CD", "variable")
+  id_cols = c("YEAR", "SPECIES_CD", "variable")
   other_cols <- setdiff(names(y_wide), id_cols)
   if (length(other_cols) == 0) {
     y_wide[["0"]] <- 0
@@ -721,7 +759,6 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
     pivot_longer(cols = -all_of(id_cols), names_to = "bin", values_to = "value") %>%
     mutate(bin = as.numeric(bin))
 
-  # Final guard: if result is empty or bin all NA, create minimal row with correct label
   if (nrow(y) == 0 || all(is.na(y$bin))) {
     y <- tibble(YEAR = yrs, SPECIES_CD = spp, variable = factor(legend_labels[1], levels = legend_labels), bin = 0, value = 0)
   }
@@ -952,14 +989,14 @@ MIR_LF_yr <- function(df, spp, bin_size, yrs = NULL, spp_name, category, custom_
 # }
 
 # Manually adjust the bin size based on species code (unchanged)
-manual_bin <- c("HAE FLAV" = 5, "CEP CRUE" = 5, "CAL CALA" = 5, "CAL NODO" = 5)
+manual_bin <- c("HAE FLAV" = 5, "CEP CRUE" = 5, "CAL CALA" = 5, "CAL NODO" = 5, "SPA AURO" = 5)
 
 render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME,
                                    max_size = NULL,
-                                   yrs = c(2022, 2024),
+                                   yrs = c(2025),
                                    target_bins = 8,
                                    legend_labels = c("0", "1", "2"),
-                                   fill_colors = c("#999999", "#E69F00", "#56B4E9")) { # 1. Added default colors
+                                   fill_colors = c("#999999", "#E69F00", "#56B4E9")) {
 
   bin_size <- if (exists("manual_bin") && SPECIES_CD %in% names(manual_bin)) {
     manual_bin[[SPECIES_CD]]
@@ -972,7 +1009,7 @@ render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME,
     patchwork::plot_spacer()
   }
 
-  # 2. Pass fill_colors into the MIR_LF function
+  # 1. Generate individual year panels (Cleaned up the duplicate code here!)
   panels <- lapply(yrs, function(year) {
     MIR_LF(
       df            = df,
@@ -981,42 +1018,36 @@ render_LF_plots_simple <- function(df, SPECIES_CD, COMNAME,
       yrs           = year,
       spp_name      = COMNAME,
       legend_labels = legend_labels,
-      fill_colors   = fill_colors  # Ensure MIR_LF is set up to receive this!
+      fill_colors   = fill_colors
     )
   })
 
+  panels <- lapply(panels, ensure_plot)
 
-    # 1. Generate individual year panels using your existing MIR_LF function
-    panels <- lapply(yrs, function(year) {
-      # Pass the legend_labels argument down here
-      MIR_LF(df = df, spp = SPECIES_CD, bin_size = bin_size, yrs = year, spp_name = COMNAME, legend_labels = legend_labels)
-    })
-    panels <- lapply(panels, ensure_plot)
+  # 2. Layout construction (Arrange in rows of 2)
+  n_per_row <- 2
+  if (length(panels) == 0) return(NULL)
 
-    # 2. Layout construction (Arrange in rows of 2)
-    n_per_row <- 2
-    if (length(panels) == 0) return(NULL)
+  # Add spacers if we have an odd number of plots to keep the grid aligned
+  n_needed <- n_per_row - (length(panels) %% n_per_row)
+  if (n_needed != n_per_row) {
+    panels <- c(panels, replicate(n_needed, patchwork::plot_spacer(), simplify = FALSE))
+  }
 
-    # Add spacers if we have an odd number of plots to keep the grid aligned
-    n_needed <- n_per_row - (length(panels) %% n_per_row)
-    if (n_needed != n_per_row) {
-      panels <- c(panels, replicate(n_needed, patchwork::plot_spacer(), simplify = FALSE))
-    }
+  # Split panels into groups of 2 for row construction
+  row_panels <- split(panels, ceiling(seq_along(panels) / n_per_row))
 
-    # Split panels into groups of 2 for row construction
-    row_panels <- split(panels, ceiling(seq_along(panels) / n_per_row))
+  # Combine columns within each row (|) and then stack rows (/)
+  combined_rows <- lapply(row_panels, function(row) {
+    if (length(row) == 1) return(row[[1]])
+    Reduce(`|`, row)
+  })
 
-    # Combine columns within each row (|) and then stack rows (/)
-    combined_rows <- lapply(row_panels, function(row) {
-      if (length(row) == 1) return(row[[1]])
-      Reduce(`|`, row)
-    })
+  final_plot <- if (length(combined_rows) == 1) {
+    combined_rows[[1]]
+  } else {
+    Reduce(`/`, combined_rows)
+  }
 
-    final_plot <- if (length(combined_rows) == 1) {
-      combined_rows[[1]]
-    } else {
-      Reduce(`/`, combined_rows)
-    }
-
-    return(final_plot)
+  return(final_plot)
 }

@@ -210,8 +210,7 @@ leaflet() %>%
 ```{r include=FALSE}
 # SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
 
-
-target_species <- c("BAL VETU", "EPI GUTT", "HAE FLAV", "LUT APOD", "OCY CHRY", "SPA VIRI")
+target_species <- c("BAL VETU", "EPI GUTT", "HAE FLAV", "LUT APOD", "OCY CHRY", "SPA VIRI", "CAL CALA", "EPI STR", "CEP FULV", "CEP CRUE", "SPA AURO", "LUT SYNA", "LUT ANAL")
 
 spp_list_STTSTJ <- STTSTJ$taxonomic_data %>%
   filter(SPECIES_CD %in% target_species) %>%
@@ -223,12 +222,28 @@ spp_list_STTSTJ <- STTSTJ$taxonomic_data %>%
     COMNAME = stringr::str_to_title(COMNAME),
     img_path = file.path("species_photos", paste0(gsub(" ", "_", SPECIES_CD), ".png"))
   )
+
+STTSTJ$sample_data <- STTSTJ$sample_data %>%
+  mutate(SPECIES_CD = ifelse(SPECIES_CD %in% c("CAL CALA", "CAL NODO", "CAL BAJO","CAL PENN", "CAL PENA", "CAL SPE."), "CAL CALA", SPECIES_CD))
+
+#creating spp_list_merged for plots with merged species data. 
+#spp_list is still used in table to show original species information
+spp_list_STTSTJ <- spp_list_STTSTJ %>%
+  mutate(
+    COMNAME = ifelse(SPECIES_CD %in% c("CAL CALA", "CAL NODO", "CAL BAJO","CAL PENN", "CAL PENA", "CAL SPE."), "Porgy", COMNAME),
+    SPECIES_CD = ifelse(SPECIES_CD %in% c("CAL CALA", "CAL NODO", "CAL BAJO","CAL PENN", "CAL PENA", "CAL SPE."), "CAL CALA", SPECIES_CD)) %>%
+  mutate(
+    SCINAME = ifelse(SPECIES_CD == "CAL CALA", "Calamus spp.", SCINAME) 
+  ) %>%
+  distinct(SPECIES_CD, COMNAME, SCINAME, .keep_all = TRUE)
+
+
 ```
 
 ```{r include=FALSE}
 # SETUP CHUNK: We run this first, silently, so the data is ready for the tabs below.
 
-target_species <- c("BAL VETU", "EPI GUTT", "HAE FLAV", "LUT APOD", "OCY CHRY", "SPA VIRI")
+target_species <- c("BAL VETU", "EPI GUTT", "HAE FLAV", "LUT APOD", "OCY CHRY", "SPA VIRI", "CAL CALA", "EPI STR", "CEP FULV", "CEP CRUE", "SPA AURO", "LUT SYNA", "LUT ANAL")
 
 spp_list_STX <- STX$taxonomic_data %>%
   filter(SPECIES_CD %in% target_species) %>%
@@ -239,7 +254,22 @@ spp_list_STX <- STX$taxonomic_data %>%
   mutate(
     COMNAME = stringr::str_to_title(COMNAME),
     img_path = file.path("species_photos", paste0(gsub(" ", "_", SPECIES_CD), ".png"))
+    
   )
+
+STX$sample_data <- STX$sample_data %>%
+  mutate(SPECIES_CD = ifelse(SPECIES_CD %in% c("CAL CALA", "CAL NODO", "CAL BAJO","CAL PENN", "CAL PENA", "CAL SPE."), "CAL CALA", SPECIES_CD))
+
+#creating spp_list_merged for plots with merged species data. 
+#spp_list is still used in table to show original species information
+spp_list_STX <- spp_list_STX %>%
+  mutate(
+    COMNAME = ifelse(SPECIES_CD %in% c("CAL CALA", "CAL NODO", "CAL BAJO","CAL PENN", "CAL PENA", "CAL SPE."), "Porgy", COMNAME),
+    SPECIES_CD = ifelse(SPECIES_CD %in% c("CAL CALA", "CAL NODO", "CAL BAJO","CAL PENN", "CAL PENA", "CAL SPE."), "CAL CALA", SPECIES_CD)) %>%
+  mutate(
+    SCINAME = ifelse(SPECIES_CD == "CAL CALA", "Calamus spp.", SCINAME) 
+  ) %>%
+  distinct(SPECIES_CD, COMNAME, SCINAME, .keep_all = TRUE)
 ```
 
 
@@ -268,7 +298,7 @@ render_strata_table_STX(STX$sample_data,
 ```
 
 ## Species
-Economically valuable species targeted by USVI fisheries were selected for analyses.
+Economically valuable species targeted by USVI fisheries were selected for analyses. Difficult to distiguish species, porgies, were combined.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 render_species_table(spp_list_STTSTJ, caption = "Table 3: Fish species with representative photos.")
 ```
@@ -277,7 +307,7 @@ render_species_table(spp_list_STTSTJ, caption = "Table 3: Fish species with repr
 # Results {.tabset .tabset-pills}
 
 ## Density
-Relative density is an index or relative measure of population density that is commonly used in fisheries surveys. Relative density is a comparative measure of density across locations or years, rather than an absolute count that is impractical due to the scale and complexity of the marine environment. Densities shown here represent NCRMP’s fish survey area (177m2).
+Relative density is an index or relative measure of population density that is commonly used in fisheries surveys. Relative density is a comparative measure of density across locations or years, rather than an absolute count that is impractical due to the scale and complexity of the marine environment. Densities shown here represent NCRMP’s fish survey area (177m2) ± standard error.
 
 NCRMP surveys capture a snapshot of coral reef fish populations within no-take MPAs and the surrounding reef tract. Since it is common for fish populations to fluctuate annually, whenever possible, resource managers should evaluate multiple years of fish density data to inform and assess management efforts. Consistently higher or increasing densities over time within no-take MPAs suggests these areas are effectively protecting critical habitat for fishery-targeted species.
 
@@ -306,7 +336,7 @@ USVI_domain_dens_by_year_bar(STX, spp_list_STX,
 
 ## Occurrence
 
-Monitoring species occurrence, or how often a species is detected in surveys, offers valuable insight into its distribution. This metric provides presence data regardless of abundance, which helps to identify whether a species is widespread or rare. For resource managers, species occurrence can be used as a bioindicator of overall ecosystem health and to evaluate the success of no-take marine protected areas. A consistently higher occurrence of a fish species, especially of a fishery-target species, within a no-take MPA can serve as an indicator of management success.
+Monitoring species occurrence, or how often a species is detected in surveys, offers valuable insight into its distribution. This metric provides presence data regardless of abundance, which helps to identify whether a species is widespread or rare. For resource managers, species occurrence can be used as a bioindicator of overall ecosystem health and to evaluate the success of no-take marine protected areas. A consistently higher occurrence of a fish species, especially of a fishery-target species, within a no-take MPA can serve as an indicator of management success. Error bars represent ± standard error.
 
 ::: {.panel-tabset}
 
@@ -397,6 +427,7 @@ pwalk(
 #| fig-height: 6
 #| out-width: 100%
 
+
 pwalk(
   spp_list_STX,
   function(SPECIES_CD, COMNAME, max_size, ...) {
@@ -410,9 +441,9 @@ pwalk(
       SPECIES_CD    = SPECIES_CD,
       COMNAME       = COMNAME,
       max_size      = max_size,
-      yrs           = unique(STTSTJ$sample_data$YEAR),
+      yrs           = unique(STX$sample_data$YEAR),
       target_bins   = 12,
-      legend_labels = c("Open", "BUCK/SARI", "STXEEMP"),
+      legend_labels = c("Open", "VICR", "STXEEMP"),
       fill_colors = c("#0072B2", "#009E73", "#000000")
     )
     
@@ -451,5 +482,9 @@ pwalk(
 
 **Data Availability:** The NCRMP fish survey data used in this project is available through the NOAA National Centers for Environmental Information (NCEI) [here](https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0313688).
 
+<<<<<<< HEAD
 Citation: NOAA Southeast Fisheries Science Center; NOAA National Centers for Coastal Ocean Science (2026). National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands from 2025-06-02 to 2025-08-14 (NCEI Accession 0313688). https://www.ncei.noaa.gov/archive/accession/0313688. In NOAA National Centers for Coastal Ocean Science (2018). National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands. NOAA National Centers for Environmental Information. Dataset. https://doi.org/10.7289/v5f769mm. Accessed [5.11.26].
+=======
+NOAA Southeast Fisheries Science Center; NOAA National Centers for Coastal Ocean Science (2026). National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands from 2025-06-02 to 2025-08-14 (NCEI Accession 0313688). https://www.ncei.noaa.gov/archive/accession/0313688. In NOAA National Centers for Coastal Ocean Science. National Coral Reef Monitoring Program: Assessment of coral reef fish communities in the U.S. Virgin Islands. [indicate subset used]. NOAA National Centers for Environmental Information. Unpublished Dataset. https://doi.org/10.7289/v5f769mm. Accessed 4/15/2026.
+>>>>>>> b7cf8a243ea2d6e5a60489495d9100bc48f80b7e
 
