@@ -554,12 +554,8 @@ USVI_domain_occ_by_year_bar <- function(dataset,
 
   return(p)
 }
-# Copy-pasteable: compute_bin_size, LF helpers, plotting, and render function.
-# Requires: tidyverse (dplyr/tidyr/purrr), ggplot2, patchwork, plus your getDomainLengthFrequency() and labeler()/theme_Publication().
 
 
-# Copy-pasteable: compute_bin_size, LF helpers, plotting, and render function.
-# Requires: tidyverse (dplyr/tidyr/purrr), ggplot2, patchwork, plus your getDomainLengthFrequency() and labeler()/theme_Publication().
 
 compute_bin_size <- function(max_size, target_bins = 10) {
   # Handle invalid input
@@ -572,8 +568,7 @@ compute_bin_size <- function(max_size, target_bins = 10) {
   possible_bin_sizes[closest_match_index]
 }
 
-# Robust bar-plot function for length-freq (category mode).
-# Uses ggplot's default fill colors and default legend labels.
+
 plot_bins <- function(x, ttle, bin_size, vline_at_lc = NULL, legend_mode = "category",
                       fill_colors = c("#0072B2", "#009E73", "#000000")) { # 1. Add argument
 
@@ -670,12 +665,11 @@ plot_bins_yr <- function(x, ttle, bin_size, vline_at_lc = NULL, category = NULL,
   p
 }
 
-# Length frequency for comparing inside/outside/other. Converts protected_status -> "0","1","2" (factor).
 MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
                    legend_labels = c("0", "1", "2"),
                    fill_colors = c("#0072B2", "#009E73", "#000000")) {
 
-  # --- STEP 1: SAFE SEPARATION ---
+  # --- STEP 1: THE PERFECT "FAKE FISH" INJECTION ---
   all_prot_levels <- c(0, 1, 2)
 
   present_prots <- df$sample_data %>%
@@ -683,60 +677,66 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
     dplyr::pull(PROT) %>%
     unique()
 
-  is_missing_levels <- length(setdiff(all_prot_levels, present_prots)) > 0
+  missing_prots <- setdiff(all_prot_levels, present_prots)
+  df_temp <- df
 
-  if (is_missing_levels) {
-    raw_counts <- df$sample_data %>%
-      dplyr::filter(SPECIES_CD == spp, YEAR == yrs)
+  if (length(missing_prots) > 0) {
+    # THE FIX: Grab exactly ONE valid row from this year to steal its station format
+    base_row <- df_temp$sample_data %>%
+      dplyr::filter(YEAR == yrs) %>%
+      dplyr::slice(1)
 
-    if (nrow(raw_counts) == 0) {
-      raw_rvc <- data.frame(
-        YEAR = yrs,
-        SPECIES_CD = spp,
-        protected_status = all_prot_levels,
-        length_class = 0, # Starts at 0
-        frequency = 0
-      )
-    } else {
-      raw_rvc <- raw_counts %>%
-        dplyr::rename(protected_status = PROT, length_class = LEN) %>%
-        dplyr::group_by(YEAR, SPECIES_CD, protected_status, length_class) %>%
-        dplyr::summarise(frequency = sum(NUM, na.rm = TRUE), .groups = "drop") %>%
-        tidyr::complete(YEAR = yrs, SPECIES_CD = spp, protected_status = all_prot_levels,
-                        fill = list(frequency = 0, length_class = 0)) # Fixed to 0
+    if (nrow(base_row) > 0) {
+      # Loop through the missing PROTs and create a fake fish for each one
+      fake_fish_list <- lapply(missing_prots, function(p) {
+        fake_row <- base_row
+        fake_row$PROT <- p
+        fake_row$SPECIES_CD <- spp
+        fake_row$NUM <- 1
+        fake_row$LEN <- 10
+        return(fake_row)
+      })
+
+      fake_fish <- dplyr::bind_rows(fake_fish_list)
+      df_temp$sample_data <- dplyr::bind_rows(df_temp$sample_data, fake_fish)
     }
+  }
 
-  } else {
-    raw_rvc <- rvc::getDomainLengthFrequency(df, species = spp, merge_protected = FALSE)
+  # Run rvc normally! It calculates the TRUE density for your actual data and won't crash.
+  raw_rvc <- rvc::getDomainLengthFrequency(df_temp, species = spp, merge_protected = FALSE)
+
+  # --- STEP 2: ZERO OUT THE FAKES ---
+  if (length(missing_prots) > 0 && nrow(raw_rvc) > 0) {
+    raw_rvc <- raw_rvc %>%
+      dplyr::mutate(frequency = ifelse(protected_status %in% missing_prots, 0, frequency))
   }
   # --------------------------------
 
-  # Step 2: Downstream processing pipe (With targeted bug fix)
+  # Step 3: Your normal downstream processing pipe
   x <- raw_rvc %>%
-    group_by(YEAR, SPECIES_CD, protected_status) %>%
-    nest() %>%
-    mutate(Lf = map(data, ~ {
-      # FIX: Define a safe sequence length that handles 0 maximums safely
+    dplyr::group_by(YEAR, SPECIES_CD, protected_status) %>%
+    tidyr::nest() %>%
+    dplyr::mutate(Lf = purrr::map(data, ~ {
       max_len <- max(.x$length_class, na.rm = TRUE)
       dummy_seq <- if (is.na(max_len) || max_len < 1) 0 else seq(1, max_len, 0.5)
 
       .x %>%
         data.frame() %>%
-        full_join(., data.frame(length_class = dummy_seq), by = "length_class") %>%
-        select(length_class, frequency) %>%
+        dplyr::full_join(data.frame(length_class = dummy_seq), by = "length_class") %>%
+        dplyr::select(length_class, frequency) %>%
         replace(is.na(.), 0) %>%
-        mutate(bin = as.numeric(cut(length_class,
-                                    breaks = seq(0, max(length_class, na.rm = TRUE) + bin_size, bin_size)))) %>%
-        arrange(length_class) %>%
-        group_by(bin) %>%
-        summarise(freq = sum(frequency, na.rm = TRUE))
+        dplyr::mutate(bin = as.numeric(cut(length_class,
+                                           breaks = seq(0, max(length_class, na.rm = TRUE) + bin_size, bin_size)))) %>%
+        dplyr::arrange(length_class) %>%
+        dplyr::group_by(bin) %>%
+        dplyr::summarise(freq = sum(frequency, na.rm = TRUE))
     })) %>%
-    unnest(Lf) %>%
-    select(YEAR, SPECIES_CD, protected_status, bin, freq) %>%
-    ungroup() %>%
-    mutate(
+    tidyr::unnest(Lf) %>%
+    dplyr::select(YEAR, SPECIES_CD, protected_status, bin, freq) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
       value = freq,
-      variable = case_when(
+      variable = dplyr::case_when(
         protected_status == 0 ~ "0",
         protected_status == 1 ~ "1",
         protected_status == 2 ~ "2",
@@ -745,9 +745,9 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
     )
 
   y_wide <- x %>%
-    filter(YEAR == yrs) %>%
-    select(YEAR, SPECIES_CD, variable, bin, value) %>%
-    pivot_wider(names_from = bin, values_from = value, values_fill = 0)
+    dplyr::filter(YEAR == yrs) %>%
+    dplyr::select(YEAR, SPECIES_CD, variable, bin, value) %>%
+    tidyr::pivot_wider(names_from = bin, values_from = value, values_fill = 0)
 
   id_cols = c("YEAR", "SPECIES_CD", "variable")
   other_cols <- setdiff(names(y_wide), id_cols)
@@ -756,11 +756,11 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
   }
 
   y <- y_wide %>%
-    pivot_longer(cols = -all_of(id_cols), names_to = "bin", values_to = "value") %>%
-    mutate(bin = as.numeric(bin))
+    tidyr::pivot_longer(cols = -dplyr::all_of(id_cols), names_to = "bin", values_to = "value") %>%
+    dplyr::mutate(bin = as.numeric(bin))
 
   if (nrow(y) == 0 || all(is.na(y$bin))) {
-    y <- tibble(YEAR = yrs, SPECIES_CD = spp, variable = factor(legend_labels[1], levels = legend_labels), bin = 0, value = 0)
+    y <- dplyr::tibble(YEAR = yrs, SPECIES_CD = spp, variable = factor(legend_labels[1], levels = legend_labels), bin = 0, value = 0)
   }
 
   plot_bins(x = y,
@@ -769,7 +769,6 @@ MIR_LF <- function(df, spp, bin_size, yrs = NULL, spp_name,
             legend_mode = "category",
             fill_colors = fill_colors)
 }
-
 # Length frequency for comparing a single category across recent years
 # MIR_LF_yr <- function(df, spp, bin_size, yrs = NULL, spp_name, category, custom_title = NULL) {
 #
